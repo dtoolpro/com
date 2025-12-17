@@ -1,0 +1,2489 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DESIGN TOOL PRO</title>
+    <style>
+        /* BASE STYLES */
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f0f4f8;
+            margin: 0;
+            padding: 0;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .header {
+            width: 100%;
+            background: #0f172a;
+            color: white;
+            padding: 10px 0;
+            text-align: center;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+            font-size: 1.2em;
+        }
+
+        .controls {
+            width: 100%;
+            max-width: 950px;
+            background: white;
+            padding: 10px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap; 
+            justify-content: center;
+            margin-bottom: 10px;
+        }
+
+        button {
+            padding: 8px 10px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: background 0.2s;
+            flex-grow: 1; 
+            min-width: 70px;
+            font-size: 0.85em;
+        }
+
+        /* Scale and Modeling Input Style */
+        .scale-control, .modeling-control {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            background: #cbd5e1;
+            padding: 5px 8px;
+            border-radius: 4px;
+            font-size: 0.85em;
+            font-weight: 600;
+            color: #1e293b;
+            flex-grow: 0; 
+            min-width: fit-content;
+        }
+        .scale-control input, .modeling-control input {
+            width: 40px;
+            padding: 2px 4px;
+            border: 1px solid #94a3b8;
+            border-radius: 3px;
+            text-align: center;
+        }
+        .modeling-control select {
+            padding: 2px 4px;
+            border: 1px solid #94a3b8;
+            border-radius: 3px;
+            font-size: 0.85em;
+        }
+        
+        /* Tool Colors */
+        button.tool-mode { background: #2563eb; color: white; }
+        button.advanced-mode { background: #9333ea; color: white; } 
+        button.new-tool { background: #008080; color: white; } 
+        button.fixture-mode { background: #059669; color: white; } 
+        button.edit-mode { background: #eab308; color: #1e293b; }
+        button#mode-3d { background: #00bcd4; color: white; }
+        button#mode-move { background: #f97316; color: white; }
+        button#mode-copy { background: #3b82f6; color: white; }
+        button.utility { background: #e2e8f0; color: #1e293b; }
+        button#mode-polygon { background: #f97316; color: white; } 
+        
+        /* NEW Tool Colors */
+        button.structural-mode { background: #546e7a; color: white; }
+        button.appliance-mode { background: #d32f2f; color: white; }
+
+        /* ACTIVE state */
+        button.active { box-shadow: 0 0 0 3px #f97316; border: 1px solid white; }
+        
+        /* Export PNG button (Original: with grid and dimensions) */
+        button#export-dim-btn { background: #10b981; color: white; } 
+        
+        /* Rotation/Swipe Indicator */
+        button.rotate-btn { background: #ff9800; color: white; flex-grow: 0.5; } 
+
+        /* CANVAS AREA AND MESSAGE */
+        #tool-message {
+            width: 100%;
+            max-width: 950px;
+            margin-bottom: 10px;
+            padding: 5px 10px;
+            font-size: 0.9em;
+            color: #cc0000;
+            text-align: center;
+            background: #fff;
+            border-radius: 4px;
+        }
+
+        #canvas-container {
+            width: 95%; 
+            max-width: 950px;
+            border: 2px solid #ccc;
+            background-color: #ffffff;
+            cursor: default; 
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        
+        #isometric-container {
+            width: 95%;
+            max-width: 950px;
+            border: 2px solid #00bcd4;
+            background-color: #ffffff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.3);
+            display: none; 
+            touch-action: none; 
+            cursor: grab;
+        }
+        
+        /* Dynamic CSS for 2D Canvas touch/drawing control */
+        #planner-canvas.drawing-active { 
+            cursor: crosshair !important; 
+            touch-action: none; /* Disables page scroll/pan during drawing */
+        }
+        #planner-canvas.editing-active { 
+            cursor: move !important; /* Move cursor for select and move modes */
+            touch-action: none;
+        }
+        #planner-canvas.polygon-drawing {
+            cursor: pointer !important;
+            touch-action: none;
+        }
+
+
+        /* MOBILE OPTIMIZATION */
+        @media (max-width: 768px) {
+            .controls {
+                padding: 5px;
+                gap: 4px;
+            }
+            button { 
+                min-width: 15%; 
+                font-size: 0.65em; 
+                padding: 6px 4px; 
+            }
+            .scale-control, .modeling-control { 
+                font-size: 0.7em; 
+                padding: 4px 6px;
+                min-width: 100%; 
+                justify-content: center;
+                margin-bottom: 5px;
+            }
+            .scale-control input, .modeling-control input { width: 40px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="header">DESIGN TOOL PRO</div>
+
+    <div class="controls">
+        <div class="scale-control">
+            Scale (m/grid): <input type="number" id="scale-input" value="1.00" min="0.1" step="0.05">
+        </div>
+        <div class="modeling-control">
+            Thickness (m): <input type="number" id="thickness-input" value="0.20" min="0.05" step="0.01">
+        </div>
+        <div class="modeling-control">
+            Height (m): <input type="number" id="height-input" value="3.00" min="1.0" step="0.1">
+        </div>
+        <div class="modeling-control">
+            Wall Mat: 
+            <select id="wall-material-select">
+                <option value="Concrete">Concrete</option>
+                <option value="Brick">Brick</option>
+                <option value="Wood Siding">Wood Siding</option>
+                <option value="Zinc">Zinc</option>
+                <option value="Stucco">Stucco</option>
+            </select>
+        </div>
+        <div class="modeling-control">
+            Roof Mat: 
+            <select id="roof-material-select">
+                <option value="Zinc" selected>Zinc</option>
+                <option value="Concrete">Concrete</option>
+                <option value="Brick">Brick</option>
+                <option value="Wood Siding">Wood Siding</option>
+                <option value="Stucco">Stucco</option>
+            </select>
+        </div>
+        
+        <button class="tool-mode" id="mode-rect">Room</button>
+        <button id="mode-polygon">Polygon Room</button> 
+        <button class="tool-mode" id="mode-line">Wall</button>
+        <button class="tool-mode" id="mode-door">Door</button>
+        <button class="tool-mode" id="mode-window">Window</button>
+        <button class="tool-mode" id="mode-stairs">Stairs</button>
+        <button class="advanced-mode" id="mode-arcwall">Curved Wall</button>
+        <button class="advanced-mode" id="mode-column">Column</button>
+        <button class="advanced-mode" id="mode-roof">Roof/Ceiling</button>
+        
+        <button class="new-tool" id="mode-angleline">Any-Angle Wall</button>
+        <button class="new-tool" id="mode-dimension">Dimension Line</button>
+        <button class="new-tool" id="mode-hatch">Hatch Fill</button>
+        
+        <button class="structural-mode" id="mode-beam">Beam</button>
+        <button class="structural-mode" id="mode-foundation">Foundation</button>
+        
+        <button class="fixture-mode" id="mode-cabinet">Cabinet</button>
+        <button class="appliance-mode" id="mode-appliance">Appliance</button>
+
+        <button class="fixture-mode" id="mode-toilet">Toilet</button>
+        <button class="fixture-mode" id="mode-sink">Sink</button>
+        <button class="fixture-mode" id="mode-sofa">Sofa</button>
+        <button class="fixture-mode" id="mode-bed">Bed</button>
+        <button class="fixture-mode" id="mode-table">Table</button>
+        <button class="tool-mode" id="mode-text">Label</button>
+        
+        <button class="edit-mode" id="mode-select">Rotate/Delete</button>
+        <button id="mode-move">Move ✋</button>
+        <button id="mode-copy">Copy 📋</button>
+
+        <button id="mode-3d">View 3D 🧊</button>
+        <button class="rotate-btn" style="flex-grow: 0.5; pointer-events: none;">3D Rotate: Swipe Canvas</button>
+
+        <button class="utility" id="clear-btn">Clear</button>
+        <button class="utility" id="save-btn">Save</button>
+        <button class="utility" id="load-btn">Load</button>
+        
+        <button id="export-dim-btn">Export PNG 📏</button>
+        <button id="export-2d-btn">Export 2D 🖼️</button>
+        <button id="export-3d-btn">Export 3D 🧊</button>
+    </div>
+    
+    <div id="tool-message">Select a tool above to begin designing.</div>
+
+    <div id="canvas-container">
+        <canvas id="planner-canvas"></canvas>
+    </div>
+    
+    <div id="isometric-container">
+        <canvas id="isometric-canvas"></canvas>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('planner-canvas');
+        const ctx = canvas.getContext('2d');
+        const isoCanvas = document.getElementById('isometric-canvas');
+        const isoCtx = isoCanvas.getContext('2d');
+        const isoContainer = document.getElementById('isometric-container');
+        const mainContainer = document.getElementById('canvas-container');
+        const scaleInput = document.getElementById('scale-input');
+        const thicknessInput = document.getElementById('thickness-input');
+        const heightInput = document.getElementById('height-input');
+        const wallMaterialSelect = document.getElementById('wall-material-select');
+        const roofMaterialSelect = document.getElementById('roof-material-select');
+        const toolMessage = document.getElementById('tool-message');
+
+        let isDrawing = false; 
+        let currentTool = 'rect';
+        let drawingState = 0; 
+        let startX, startY;
+        let currentShape = null; 
+        let objects = []; 
+        let selectedObject = null; 
+        let isRotatingSelected = false; 
+        
+        let scaleMetersPerGrid = 1.0; 
+        const gridSize = 50; 
+        const COLUMN_SIZE = gridSize;
+        const CABINET_W = gridSize * 2; // 2m wide cabinet
+        const CABINET_H = gridSize * 0.6; // 0.6m deep cabinet
+        const APPLIANCE_SIZE = gridSize * 1; // 1m x 1m
+        
+        // --- Dynamic Modeling Values (Meters) ---
+        let wallThicknessMeters = 0.20; // Default 20cm
+        let wallHeightMeters = 3.00; // Default 3m
+        
+        // --- NEW: Material Definitions and State ---
+        const materialMap = {
+            'Concrete': { wall: '#BBB', top: '#CCC', roof: '#AAA' },
+            'Brick': { wall: '#A53826', top: '#C25D4F', roof: '#802B1E' },
+            'Wood Siding': { wall: '#B8860B', top: '#D2B48C', roof: '#A07C1C' },
+            'Zinc': { wall: '#6C7A89', top: '#9BA9B8', roof: '#6C7A89' }, 
+            'Stucco': { wall: '#F0E68C', top: '#FFFACD', roof: '#EEDD82' }
+        };
+        let currentWallMaterialKey = wallMaterialSelect.value;
+        let currentRoofMaterialKey = roofMaterialSelect.value;
+        
+        // --- Calculated Pixel Values ---
+        let wallThickness = 10; 
+        let wallHeight = 150; 
+        let doorHeight = 120;
+        let windowHeight = 80; 
+        let windowBottom = 50; 
+        
+        const numArcSegments = 10; 
+        
+        // --- Polygon Drawing State ---
+        let polygonVertices = []; 
+        let isDrawingPolygon = false;
+        
+        // --- 3D Rotation Variables ---
+        let isoRotationAngle = 0; 
+        let isRotating3D = false;
+        let touchStartX = 0;
+        const rotationSensitivity = 0.005; 
+        
+        // --- Setup and Canvas Sizing ---
+        
+        function getPixelsPerMeter() {
+             return gridSize / scaleMetersPerGrid;
+        }
+
+        // --- NEW: Function to update dynamic constants from inputs ---
+        function updateModelingConstants() {
+            wallThicknessMeters = parseFloat(thicknessInput.value) || 0.20;
+            wallHeightMeters = parseFloat(heightInput.value) || 3.00;
+            
+            currentWallMaterialKey = wallMaterialSelect.value;
+            currentRoofMaterialKey = roofMaterialSelect.value;
+            
+            const ppm = getPixelsPerMeter(); 
+
+            // Convert meters to pixels based on the current scale
+            wallThickness = wallThicknessMeters * ppm;
+            wallHeight = wallHeightMeters * ppm; 
+            
+            // Relative feature heights (adjust these ratios as needed)
+            doorHeight = wallHeight * 0.75; 
+            windowHeight = wallHeight * 0.4; 
+            windowBottom = wallHeight * 0.25; 
+            
+            // Re-draw everything
+            drawObjects(); 
+            if (isoContainer.style.display === 'block') {
+                drawIsometricView();
+            }
+        }
+        // --- END NEW FUNCTION ---
+
+        function setCanvasSize() {
+            const width = mainContainer.clientWidth;
+            const height = Math.min(width * 0.75, 600);
+            
+            canvas.width = width;
+            canvas.height = height;
+            isoCanvas.width = width;
+            isoCanvas.height = height;
+            
+            updateModelingConstants(); // Initial calculation and draw
+        }
+
+        window.addEventListener('resize', setCanvasSize);
+        scaleInput.addEventListener('change', () => {
+            const newScale = parseFloat(scaleInput.value);
+            if (newScale > 0) {
+                scaleMetersPerGrid = newScale;
+                updateModelingConstants(); // Recalculate pixel values
+                toolMessage.textContent = `Scale updated: 1 grid = ${scaleMetersPerGrid.toFixed(2)} meters.`;
+            }
+        });
+        
+        thicknessInput.addEventListener('change', updateModelingConstants);
+        heightInput.addEventListener('change', updateModelingConstants);
+        wallMaterialSelect.addEventListener('change', updateModelingConstants);
+        roofMaterialSelect.addEventListener('change', updateModelingConstants);
+
+        function getScale() {
+            return gridSize / scaleMetersPerGrid; 
+        }
+
+        function getClientPos(e) {
+            const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+            const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+            return { clientX, clientY };
+        }
+
+        // --- Drawing Logic (2D) ---
+
+        function drawGrid(context, drawLines = true) {
+            context.clearRect(0, 0, context.canvas.width, context.canvas.height);
+            context.fillStyle = '#ffffff'; 
+            context.fillRect(0, 0, context.canvas.width, context.canvas.height);
+            context.strokeStyle = '#eee';
+            context.lineWidth = 0.5;
+
+            if (drawLines) {
+                for (let x = 0; x <= context.canvas.width; x += gridSize) {
+                    context.beginPath(); context.moveTo(x, 0); context.lineTo(x, context.canvas.height); context.stroke();
+                }
+                for (let y = 0; y <= context.canvas.height; y += gridSize) {
+                    context.beginPath(); context.moveTo(0, y); context.lineTo(0, y); context.lineTo(context.canvas.width, y); context.stroke();
+                }
+            }
+        }
+        
+        // --- Helper Function: Draw Hatch Pattern ---
+        function drawHatchPattern(context, x, y, w, h, pattern = 'wood') {
+            context.save();
+            context.beginPath();
+            context.rect(x, y, w, h);
+            context.clip(); 
+
+            context.strokeStyle = 'rgba(150, 75, 0, 0.6)'; 
+            context.lineWidth = 1;
+            
+            const spacing = 10;
+
+            if (pattern === 'wood') {
+                for (let i = x; i < x + w; i += spacing * 2) {
+                    context.beginPath();
+                    context.moveTo(i, y);
+                    context.lineTo(i + spacing, y + h);
+                    context.stroke();
+                }
+            } else if (pattern === 'carpet') {
+                context.strokeStyle = 'rgba(100, 100, 200, 0.6)'; 
+                context.lineWidth = 0.5;
+                for (let i = x; i < x + w; i += spacing) {
+                    context.beginPath(); context.moveTo(i, y); context.lineTo(i, y + h); context.stroke();
+                }
+                for (let j = y; j < y + h; j += spacing) {
+                    context.beginPath(); context.moveTo(x, j); context.lineTo(x + w, j); context.lineTo(x + w, j); context.stroke();
+                }
+            }
+            
+            context.restore();
+        }
+
+        function drawPolygon(context, obj, isSelected = false, drawDimensions = true) {
+            if (obj.vertices.length < 2) return;
+            
+            context.save();
+            context.beginPath();
+            context.moveTo(obj.vertices[0].x, obj.vertices[0].y);
+            
+            for (let i = 1; i < obj.vertices.length; i++) {
+                context.lineTo(obj.vertices[i].x, obj.vertices[i].y);
+            }
+            
+            if (obj.isClosed) {
+                context.closePath();
+                context.fillStyle = obj.fill || 'rgba(100, 149, 237, 0.4)';
+                context.fill();
+            }
+            
+            context.strokeStyle = isSelected ? '#cc0000' : '#1e293b';
+            context.lineWidth = isSelected ? 3 : 2;
+            context.setLineDash(isSelected ? [5, 5] : []);
+            context.stroke();
+            
+            if (drawDimensions && obj.isClosed) {
+                // Simplified dimension label for polygon: just show the label in the center
+                const center = getPolygonCenter(obj.vertices);
+                context.fillStyle = '#0f172a';
+                context.font = '12px Arial';
+                context.fillText(`Polygon`, center.x, center.y);
+            }
+            
+            context.restore();
+        }
+        
+        // Helper function to find a rough center of the polygon for labeling
+        function getPolygonCenter(vertices) {
+             let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+             vertices.forEach(v => {
+                 minX = Math.min(minX, v.x);
+                 minY = Math.min(minY, v.y);
+                 maxX = Math.max(maxX, v.x);
+                 maxY = Math.max(maxY, v.y);
+             });
+             return { x: minX + (maxX - minX) / 2, y: minY + (maxY - minY) / 2 };
+        }
+
+
+        function drawSingleObject(context, obj, isSelected = false, drawDimensions = true) {
+            context.save();
+            context.strokeStyle = isSelected ? '#cc0000' : '#1e293b';
+            context.lineWidth = 2;
+            context.setLineDash(isSelected ? [5, 5] : []);
+
+            // Apply rotation and translation for objects that support it
+            if (obj.angle !== undefined && obj.type !== 'rect' && obj.type !== 'polygon' && obj.type !== 'roof' && obj.type !== 'foundation') { // Exclude rect/polygon/roof/foundation
+                const centerX = obj.x + obj.w / 2;
+                const centerY = obj.y + obj.h / 2;
+                context.translate(centerX, centerY);
+                context.rotate(obj.angle);
+                context.translate(-centerX, -centerY);
+            }
+
+            if (obj.type === 'rect') {
+                context.fillStyle = obj.fill || 'rgba(100, 149, 237, 0.4)';
+                context.fillRect(obj.x, obj.y, obj.w, obj.h);
+                context.strokeRect(obj.x, obj.y, obj.w, obj.h);
+                if (drawDimensions) drawDimensionLabel(context, obj.x, obj.y, obj.w, obj.h);
+            } else if (obj.type === 'polygon') { 
+                drawPolygon(context, obj, isSelected, drawDimensions);
+            } else if (obj.type === 'hatch') {
+                context.fillStyle = obj.fill || 'rgba(255, 255, 255, 0.1)';
+                context.fillRect(obj.x, obj.y, obj.w, obj.h);
+                drawHatchPattern(context, obj.x, obj.y, obj.w, obj.h, obj.pattern);
+                context.strokeRect(obj.x, obj.y, obj.w, obj.h);
+                if (drawDimensions) drawDimensionLabel(context, obj.x, obj.y, obj.w, obj.h);
+            } else if (obj.type === 'foundation') { // NEW STRUCTURAL TOOL
+                drawFoundation(context, obj);
+            } else if (obj.type === 'roof') { // NEW ROOF DRAWING (2D)
+                context.fillStyle = 'rgba(135, 206, 250, 0.4)'; // Sky blue for roof area
+                context.fillRect(obj.x, obj.y, obj.w, obj.h);
+                context.strokeRect(obj.x, obj.y, obj.w, obj.h);
+                if (drawDimensions) {
+                    context.fillStyle = '#0f172a'; context.font = '12px Arial'; 
+                    const area = (Math.abs(obj.w/getScale()) * Math.abs(obj.h/getScale())).toFixed(2);
+                    context.fillText(`ROOF: Area ${area}m²`, obj.x + obj.w / 2 - 40, obj.y + obj.h / 2);
+                }
+            } else if (obj.type === 'line' || obj.type === 'angleline') {
+                context.lineWidth = wallThickness; 
+                context.beginPath(); context.moveTo(obj.x1, obj.y1); context.lineTo(obj.x2, obj.y2); context.stroke();
+                if (drawDimensions) drawDimensionLabel(context, obj.x1, obj.y1, obj.x2 - obj.x1, obj.y2 - obj.y1, true);
+            } else if (obj.type === 'beam') { // NEW STRUCTURAL TOOL
+                drawBeam(context, obj);
+            } else if (obj.type === 'dimension') {
+                if(drawDimensions) drawDimensionLine(context, obj); // Only draw dimension lines if requested
+            } else if (obj.type === 'arcwall') {
+                drawArcWall(context, obj, drawDimensions);
+            } else if (obj.type === 'door') {
+                drawDoor(context, obj.x1, obj.y1, obj.x2, obj.y2);
+            } else if (obj.type === 'window') {
+                drawWindow(context, obj.x1, obj.y1, obj.x2, obj.y2);
+            } else if (obj.type === 'stairs') {
+                drawStairs(context, obj.x1, obj.y1, obj.x2, obj.y2);
+            } else if (obj.type === 'toilet') {
+                drawToilet(context, obj.x, obj.y, obj.w, obj.h);
+            } else if (obj.type === 'sink') {
+                drawSink(context, obj.x, obj.y, obj.w, obj.h);
+            } else if (obj.type === 'sofa') {
+                drawSofa(context, obj.x, obj.y, obj.w, obj.h);
+            } else if (obj.type === 'bed') {
+                drawBed(context, obj.x, obj.y, obj.w, obj.h);
+            } else if (obj.type === 'table') {
+                drawTable(context, obj.x, obj.y, obj.w, obj.h);
+            } else if (obj.type === 'cabinet') { // NEW FLOOR PLAN TOOL
+                drawCabinet(context, obj.x, obj.y, obj.w, obj.h);
+            } else if (obj.type === 'appliance') { // NEW FLOOR PLAN TOOL
+                drawAppliance(context, obj.x, obj.y, obj.w, obj.h);
+            } else if (obj.type === 'column') {
+                drawColumn(context, obj.x, obj.y);
+            } else if (obj.type === 'text') {
+                context.fillStyle = '#0f172a';
+                context.font = 'bold 16px Arial';
+                context.fillText(obj.text, obj.x, obj.y);
+            }
+
+            // Draw Rotation Handle for selected fixture
+            if (isSelected && ['toilet', 'sink', 'sofa', 'bed', 'table', 'column', 'cabinet', 'appliance'].includes(obj.type)) {
+                context.restore(); // Restore context to draw the handle without fixture rotation offset
+                context.save();
+                
+                const centerX = obj.x + obj.w / 2;
+                const centerY = obj.y + obj.h / 2;
+                
+                context.translate(centerX, centerY);
+                context.rotate(obj.angle || 0);
+                
+                // Rotation Handle (Red square outside the top-right corner)
+                const handleX = obj.w / 2;
+                const handleY = -obj.h / 2;
+                context.fillStyle = '#cc0000';
+                context.fillRect(handleX + 15, handleY - 15, 20, 20); 
+                context.restore();
+            }
+            
+            context.restore();
+        }
+
+        function drawObjects() {
+            drawGrid(ctx); 
+
+            objects.forEach((obj) => {
+                drawSingleObject(ctx, obj, obj === selectedObject);
+            });
+            
+            if (currentShape && currentTool !== 'polygon') {
+                 drawTemporaryShape(ctx, currentShape);
+            } else if (isDrawingPolygon && polygonVertices.length > 0) { 
+                 drawTemporaryPolygon(ctx);
+            }
+        }
+        
+        // Draw Temporary Polygon
+        function drawTemporaryPolygon(context) {
+             context.save();
+             context.strokeStyle = '#f97316';
+             context.lineWidth = 3;
+             context.setLineDash([10, 5]);
+
+             if (polygonVertices.length > 0) {
+                 context.beginPath();
+                 context.moveTo(polygonVertices[0].x, polygonVertices[0].y);
+                 for (let i = 1; i < polygonVertices.length; i++) {
+                     context.lineTo(polygonVertices[i].x, polygonVertices[i].y);
+                 }
+                 
+                 // Draw line to current mouse position (live drawing)
+                 if (currentShape) {
+                     context.lineTo(currentShape.x, currentShape.y);
+                 }
+                 context.stroke();
+                 
+                 // Highlight vertices
+                 context.fillStyle = '#f97316';
+                 polygonVertices.forEach(v => {
+                     context.fillRect(v.x - 4, v.y - 4, 8, 8);
+                 });
+             }
+             context.restore();
+        }
+
+        function drawTemporaryShape(context, shape) {
+            if (!shape) return;
+            
+            context.save();
+            context.lineWidth = 3;
+            context.strokeStyle = (['rect', 'line', 'angleline', 'arcwall', 'hatch', 'dimension', 'roof', 'beam', 'foundation'].includes(shape.type)) ? '#007bff' : '#ff5722';
+            context.setLineDash([10, 5]);
+
+            if (['rect', 'hatch', 'toilet', 'sink', 'sofa', 'bed', 'table', 'column', 'roof', 'foundation', 'cabinet', 'appliance'].includes(shape.type)) {
+                const w = shape.w;
+                const h = shape.h;
+                const x = shape.x;
+                const y = shape.y;
+
+                if (shape.type === 'rect' || shape.type === 'hatch' || shape.type === 'roof' || shape.type === 'foundation') {
+                    context.fillStyle = 'rgba(0, 123, 255, 0.1)';
+                    context.fillRect(x, y, w, h);
+                }
+                
+                context.strokeRect(x, y, w, h);
+                drawDimensionLabel(context, x, y, w, h); 
+            } else if (['line', 'door', 'window', 'stairs', 'angleline', 'beam'].includes(shape.type)) {
+                context.lineWidth = shape.type === 'beam' ? 10 : wallThickness; 
+                context.beginPath(); 
+                context.moveTo(shape.x1, shape.y1); 
+                context.lineTo(shape.x2, shape.y2); 
+                context.stroke();
+                drawDimensionLabel(context, shape.x1, shape.y1, shape.x2 - shape.x1, shape.y2 - shape.y1, true);
+            } else if (shape.type === 'dimension') {
+                drawDimensionLine(context, shape, true);
+            } else if (shape.type === 'arcwall') {
+                context.lineWidth = wallThickness; 
+                context.beginPath();
+                const radius = Math.hypot(shape.x1 - shape.xCenter, shape.y1 - shape.yCenter);
+                let startAngle = Math.atan2(shape.y1 - shape.yCenter, shape.x1 - shape.xCenter);
+                let endAngle = Math.atan2(shape.y2 - shape.yCenter, shape.x2 - shape.xCenter);
+                context.arc(shape.xCenter, shape.yCenter, radius, startAngle, endAngle, shape.anticlockwise);
+                context.stroke();
+                
+                context.fillStyle = '#007bff';
+                context.fillRect(shape.xCenter - 5, shape.yCenter - 5, 10, 10);
+            }
+            
+            context.restore();
+        }
+
+        // --- 3D Visualization Logic (UPDATED for Z-ORDER and all elements) ---
+
+        function drawIsometricView() {
+            mainContainer.style.display = 'none';
+            isoContainer.style.display = 'block';
+            
+            drawGrid(isoCtx, false); 
+            
+            const projectionAngle = Math.PI / 6; 
+            
+            const mapCenterX = canvas.width / 2;
+            const mapCenterY = canvas.height / 2;
+            const centerX = isoCanvas.width / 2;
+            const centerY = isoCanvas.height * 0.8; 
+            
+            function isoTransform(x, y) {
+                const normalizedX = x - mapCenterX + centerX;
+                const normalizedY = y - mapCenterY + centerY;
+                
+                const rotatedX = normalizedX - centerX;
+                const rotatedY = normalizedY - centerY;
+                
+                const finalRotatedX = rotatedX * Math.cos(isoRotationAngle) - rotatedY * Math.sin(isoRotationAngle);
+                const finalRotatedY = rotatedX * Math.sin(isoRotationAngle) + rotatedY * Math.cos(isoRotationAngle);
+                
+                return {
+                    x: centerX + (finalRotatedX - finalRotatedY) * Math.cos(projectionAngle),
+                    y: centerY - (finalRotatedX + finalRotatedY) * Math.sin(projectionAngle)
+                };
+            }
+            
+            function adjust(p) {
+                 return isoTransform(p.x, p.y);
+            }
+
+            // --- Draw 3D Wall from two 2D points (x1,y1) to (x2,y2) ---
+            function drawIsoWallSegment(p1_2d, p2_2d, context, height = wallHeight) {
+                const currentWallMaterial = materialMap[currentWallMaterialKey];
+                
+                const dx = p2_2d.x - p1_2d.x;
+                const dy = p2_2d.y - p1_2d.y;
+                const length = Math.hypot(dx, dy);
+                if (length === 0) return;
+
+                const perpX = -dy / length * wallThickness / 2;
+                const perpY = dx / length * wallThickness / 2;
+                
+                const p1a_2d = { x: p1_2d.x - perpX, y: p1_2d.y - perpY };
+                const p1b_2d = { x: p1_2d.x + perpX, y: p1_2d.y + perpY };
+                const p2b_2d = { x: p2_2d.x + perpX, y: p2_2d.y + perpY };
+                const p2a_2d = { x: p2_2d.x - perpX, y: p2_2d.y - perpY };
+
+                const p = [p1a_2d, p1b_2d, p2b_2d, p2a_2d].map(c => adjust(c));
+                const c = p.map(pt => ({ x: pt.x, y: pt.y - height }));
+                
+                context.strokeStyle = '#666';
+                context.lineWidth = 1;
+
+                const wallFaces = [
+                    // Side 1 (p1-p4 face, darker)
+                    { points: [p[3], c[3], c[0], p[0]], color: currentWallMaterial.wall, avgY: (p[0].y + p[3].y) / 2 }, 
+                    // Side 2 (p2-p3 face, darker)
+                    { points: [p[2], c[2], c[1], p[1]], color: currentWallMaterial.wall, avgY: (p[1].y + p[2].y) / 2 }, 
+                    // Top (c1-c4 face, lightest)
+                    { points: [c[0], c[3], c[2], c[1]], color: currentWallMaterial.top, avgY: c[0].y } 
+                ];
+                
+                wallFaces.sort((a, b) => a.avgY - b.avgY);
+
+                wallFaces.forEach(face => {
+                    context.fillStyle = face.color;
+                    context.beginPath();
+                    context.moveTo(face.points[0].x, face.points[0].y);
+                    face.points.slice(1).forEach(pt => context.lineTo(pt.x, pt.y));
+                    context.closePath();
+                    context.fill();
+                    context.stroke();
+                });
+                
+                return { p, c, perpX, perpY };
+            }
+            
+            // --- Draws a solid wall segment ---
+            function drawIsoWall(x1, y1, x2, y2, context) {
+                 drawIsoWallSegment({x: x1, y: y1}, {x: x2, y: y2}, context);
+            }
+            
+            // Helper to draw the four walls of a rect object
+            function drawIsoRectWalls(obj, context) {
+                 const x = obj.x, y = obj.y, w = obj.w, h = obj.h;
+                 // Segment 1: (x, y) to (x+w, y)
+                 drawIsoWallSegment({ x: x, y: y }, { x: x + w, y: y }, context);
+                 // Segment 2: (x+w, y) to (x+w, y+h)
+                 drawIsoWallSegment({ x: x + w, y: y }, { x: x + w, y: y + h }, context);
+                 // Segment 3: (x+w, y+h) to (x, y+h)
+                 drawIsoWallSegment({ x: x + w, y: y + h }, { x: x, y: y + h }, context);
+                 // Segment 4: (x, y+h) to (x, y)
+                 drawIsoWallSegment({ x: x, y: y + h }, { x: x, y: y }, context);
+            }
+            
+            // Function to draw 3D walls for a polygon shape
+            function drawIsoPolygonWalls(obj, context) {
+                if (obj.vertices.length < 2 || !obj.isClosed) return;
+                
+                // Draw walls for each segment
+                for (let i = 0; i < obj.vertices.length; i++) {
+                    const p1_2d = obj.vertices[i];
+                    const p2_2d = obj.vertices[(i + 1) % obj.vertices.length];
+                    
+                    // This will draw a full wall segment 
+                    drawIsoWallSegment(p1_2d, p2_2d, context);
+                }
+            }
+            
+            // Helper to draw a single polygon floor face
+            function drawIsoPolygonFloor(obj, context, color) {
+                const p = obj.vertices.map(c => adjust(c));
+                context.fillStyle = color;
+                context.beginPath();
+                context.moveTo(p[0].x, p[0].y);
+                p.slice(1).forEach(pt => context.lineTo(pt.x, pt.y));
+                context.closePath();
+                context.fill();
+                context.strokeStyle = '#1e293b'; context.lineWidth = 1;
+                context.stroke();
+            }
+
+            // --- Draw 3D Arc Wall ---
+            function drawIsoArcWall(obj, context) {
+                 const xCenter = obj.xCenter;
+                 const yCenter = obj.yCenter;
+                 const radius = Math.hypot(obj.x1 - xCenter, obj.y1 - yCenter);
+                 let startAngle = Math.atan2(obj.y1 - yCenter, obj.x1 - xCenter);
+                 let endAngle = Math.atan2(obj.y2 - yCenter, obj.x2 - xCenter);
+                 
+                 // Normalize angles to ensure correct sweeping direction
+                 if (!obj.anticlockwise && endAngle < startAngle) endAngle += 2 * Math.PI;
+                 if (obj.anticlockwise && endAngle > startAngle) endAngle -= 2 * Math.PI;
+                 
+                 const angleStep = (endAngle - startAngle) / numArcSegments;
+                 
+                 for(let i = 0; i < numArcSegments; i++) {
+                     const angleA = startAngle + i * angleStep;
+                     const angleB = startAngle + (i + 1) * angleStep;
+                     
+                     const p1 = { x: xCenter + radius * Math.cos(angleA), y: yCenter + radius * Math.sin(angleA) };
+                     const p2 = { x: xCenter + radius * Math.cos(angleB), y: yCenter + radius * Math.sin(angleB) };
+                     
+                     drawIsoWall(p1.x, p1.y, p2.x, p2.y, context);
+                 }
+            }
+
+
+            // --- Draw 3D Rectangular Prism (for Rooms, Columns and Fixtures, Roof) ---
+            function drawIsoRectangularPrism(obj, context, height, color, isRoof = false) {
+                const x = obj.x, y = obj.y, w = obj.w, h = obj.h;
+                
+                let mat = materialMap[currentWallMaterialKey];
+                if (isRoof) {
+                    mat = materialMap[currentRoofMaterialKey];
+                }
+                
+                const corners = [
+                    { x: x, y: y }, { x: x + w, y: y }, { x: x + w, y: y + h }, { x: x, y: y + h }
+                ];
+                
+                // Handle rotation for fixtures
+                if (obj.angle) {
+                    const centerX = x + w / 2;
+                    const centerY = y + h / 2;
+                    const cosA = Math.cos(obj.angle);
+                    const sinA = Math.sin(obj.angle);
+                    corners.forEach(p => {
+                        const dx = p.x - centerX;
+                        const dy = p.y - centerY;
+                        p.x = centerX + dx * cosA - dy * sinA;
+                        p.y = centerY + dx * sinA + dy * cosA;
+                    });
+                }
+                
+                const p = corners.map(c => adjust(c));
+                
+                let p_base = p; // Base points are on the ground (z=0)
+                let p_top = p.map(pt => ({ x: pt.x, y: pt.y - height })); // Top points are at height
+                
+                if (isRoof) {
+                    // Roof base is at wallHeight, top is at wallHeight + height
+                    const roofBaseZ = wallHeight;
+                    p_base = p.map(pt => ({ x: pt.x, y: pt.y - roofBaseZ }));
+                    p_top = p.map(pt => ({ x: pt.x, y: pt.y - roofBaseZ - height }));
+                }
+
+                // --- Floor/Base ---
+                if (!isRoof && obj.type !== 'foundation' && height === 0) { // Draw floor only if height=0 (area/hatch)
+                    context.fillStyle = color;
+                    context.beginPath();
+                    context.moveTo(p[0].x, p[0].y); context.lineTo(p[1].x, p[1].y);
+                    context.lineTo(p[2].x, p[2].y); context.lineTo(p[3].x, p[3].y);
+                    context.closePath();
+                    context.fill();
+                    context.strokeStyle = '#1e293b'; context.lineWidth = 1;
+                    context.stroke();
+                }
+                
+                // Z-sort faces (only if height > 0)
+                if (height > 0) {
+                    const faces = [
+                        { points: [p_base[0], p_top[0], p_top[1], p_base[1]], color: mat.wall, avgY: (p_base[0].y + p_base[1].y) / 2 }, // Side 1
+                        { points: [p_base[1], p_top[1], p_top[2], p_base[2]], color: mat.wall, avgY: (p_base[1].y + p_base[2].y) / 2 }, // Side 2
+                        { points: [p_base[2], p_top[2], p_top[3], p_base[3]], color: mat.wall, avgY: (p_base[2].y + p_base[3].y) / 2 }, // Side 3
+                        { points: [p_base[3], p_top[3], p_top[0], p_base[0]], color: mat.wall, avgY: (p_base[3].y + p_base[0].y) / 2 }, // Side 4
+                        { points: [p_top[0], p_top[3], p_top[2], p_top[1]], color: mat.top, avgY: p_top[0].y } // Top
+                    ];
+                    
+                    // Override colors for non-wall/roof items
+                    if (obj.type !== 'column' && obj.type !== 'roof' && obj.type !== 'foundation') {
+                         faces.forEach(face => { 
+                             face.color = color;
+                         });
+                    } else if (obj.type === 'foundation') {
+                        // Foundation: only draw the top face
+                        const topFace = faces[4];
+                        context.fillStyle = materialMap['Concrete'].top; 
+                        context.beginPath();
+                        context.moveTo(topFace.points[0].x, topFace.points[0].y);
+                        topFace.points.slice(1).forEach(pt => context.lineTo(pt.x, pt.y));
+                        context.closePath();
+                        context.fill();
+                        context.stroke();
+                        return; 
+                    }
+                    
+
+                    // Z-sort and draw
+                    faces.sort((a, b) => a.avgY - b.avgY);
+
+                    faces.forEach(face => {
+                        context.fillStyle = face.color;
+                        context.beginPath();
+                        context.moveTo(face.points[0].x, face.points[0].y);
+                        face.points.slice(1).forEach(pt => context.lineTo(pt.x, pt.y));
+                        context.closePath();
+                        context.fill();
+                        context.stroke();
+                    });
+                }
+            }
+
+
+            // --- Draw 3D Door Opening and Element (UNMODIFIED) ---
+            function drawIsoDoor(x1, y1, x2, y2, context) {
+                const wallGeom = drawIsoWallSegment({x: x1, y: y1}, {x: x2, y: y2}, context, wallHeight);
+                if (!wallGeom) return;
+                const { p, c } = wallGeom;
+                const currentWallMaterial = materialMap[currentWallMaterialKey];
+                
+                // 1. Cut the opening by drawing a wall cap above the door
+                const p_top = p.map(pt => ({ x: pt.x, y: pt.y - doorHeight }));
+                const c_top = c.map(pt => ({ x: pt.x, y: pt.y })); // c is the top of the full wall (wallHeight)
+                
+                const capFaces = [
+                    // Wall faces above the door
+                    { points: [p_top[3], c[3], c[0], p_top[0]], color: currentWallMaterial.wall },
+                    { points: [p_top[2], c[2], c[1], p_top[1]], color: currentWallMaterial.wall },
+                    // Top of the cap
+                    { points: [c_top[0], c_top[3], c_top[2], c_top[1]], color: currentWallMaterial.top }
+                ];
+                
+                // Sort by top-Y for correct rendering (even though they are above each other)
+                capFaces.sort((a, b) => a.points[0].y - b.points[0].y); 
+
+                capFaces.forEach(face => {
+                    context.fillStyle = face.color;
+                    context.beginPath();
+                    context.moveTo(face.points[0].x, face.points[0].y);
+                    face.points.slice(1).forEach(pt => context.lineTo(pt.x, pt.y));
+                    context.closePath();
+                    context.fill();
+                    context.stroke();
+                });
+                
+                // 2. Draw the door element itself (a thin prism)
+                const doorThickness = wallThickness * 0.1; 
+                const doorColor = '#8B4513'; 
+                
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const length = Math.hypot(dx, dy);
+                
+                // Position of the door panel (offset from wall center)
+                const doorOffsetX = -dy / length * doorThickness;
+                const doorOffsetY = dx / length * doorThickness;
+                
+                const dp1 = { x: x1 + doorOffsetX, y: y1 + doorOffsetY };
+                const dp2 = { x: x2 + doorOffsetX, y: y2 + doorOffsetY };
+                
+                const dp = [dp1, dp2, dp2, dp1].map(c => adjust(c));
+                const dc = dp.map(pt => ({ x: pt.x, y: pt.y - doorHeight }));
+
+                // Draw the front face of the door (a rectangle in 3D space)
+                context.fillStyle = doorColor;
+                context.beginPath();
+                context.moveTo(dp[0].x, dp[0].y); 
+                context.lineTo(dc[0].x, dc[0].y); 
+                context.lineTo(dc[1].x, dc[1].y); 
+                context.lineTo(dp[1].x, dp[1].y); 
+                context.closePath();
+                context.fill();
+                context.stroke();
+            }
+
+            // --- Draw 3D Window Opening and Element (UNMODIFIED) ---
+            function drawIsoWindow(x1, y1, x2, y2, context) {
+                const wallGeom = drawIsoWallSegment({x: x1, y: y1}, {x: x2, y: y2}, context, wallHeight);
+                if (!wallGeom) return;
+                const { p, c } = wallGeom;
+                const currentWallMaterial = materialMap[currentWallMaterialKey];
+                
+                // Calculate the 3D points for the sill (bottom) and header (top) of the opening
+                const p_sill = p.map(pt => ({ x: pt.x, y: pt.y - windowBottom }));
+                const p_header = p.map(pt => ({ x: pt.x, y: pt.y - windowBottom - windowHeight }));
+
+                // Wall faces to draw: Sill (Bottom cap) and Header (Top cap)
+                const sillFaces = [
+                    // Wall faces below the window
+                    { points: [p[3], p_sill[3], p_sill[0], p[0]], color: currentWallMaterial.wall },
+                    { points: [p[2], p_sill[2], p_sill[1], p[1]], color: currentWallMaterial.wall },
+                    { points: [p_sill[0], p_sill[3], p_sill[2], p_sill[1]], color: currentWallMaterial.top } // Top of sill
+                ];
+                const headerFaces = [
+                    // Wall faces above the window
+                    { points: [p_header[3], c[3], c[0], p_header[0]], color: currentWallMaterial.wall },
+                    { points: [p_header[2], c[2], c[1], p_header[1]], color: currentWallMaterial.wall },
+                    { points: [c[0], c[3], c[2], c[1]], color: currentWallMaterial.top } // Top of wall
+                ];
+
+                // Draw the sill and header sections
+                [...sillFaces, ...headerFaces].forEach(face => {
+                    context.fillStyle = face.color;
+                    context.beginPath();
+                    context.moveTo(face.points[0].x, face.points[0].y);
+                    face.points.slice(1).forEach(pt => context.lineTo(pt.x, pt.y));
+                    context.closePath();
+                    context.fill();
+                    context.stroke();
+                });
+
+                // Draw the transparent window pane
+                context.fillStyle = 'rgba(173, 216, 230, 0.6)'; // Light blue translucent
+                context.strokeStyle = '#4682b4'; 
+                context.lineWidth = 1;
+                
+                // Draw the two main visible panes (front-left and front-right facing)
+                // Left pane
+                context.beginPath();
+                context.moveTo(p_sill[0].x, p_sill[0].y);
+                context.lineTo(p_header[0].x, p_header[0].y);
+                context.lineTo(p_header[3].x, p_header[3].y);
+                context.lineTo(p_sill[3].x, p_sill[3].y);
+                context.closePath();
+                context.fill();
+                context.stroke();
+
+                // Right pane
+                context.beginPath();
+                context.moveTo(p_sill[1].x, p_sill[1].y);
+                context.lineTo(p_header[1].x, p_header[1].y);
+                context.lineTo(p_header[2].x, p_header[2].y);
+                context.lineTo(p_sill[2].x, p_sill[2].y);
+                context.closePath();
+                context.fill();
+                context.stroke();
+            }
+
+            // --- Draw 3D Stairs (NEW) ---
+            function drawIsoStairs(x1, y1, x2, y2, context) {
+                const dx = x2 - x1;
+                const dy = y2 - y1;
+                const length = Math.hypot(dx, dy);
+                if (length === 0) return;
+
+                const numSteps = 8;
+                const stepLength = length / numSteps;
+                const stepHeight = wallHeight / numSteps; 
+                
+                const unitVx = dx / length;
+                const unitVy = dy / length;
+                
+                // Calculate wall thickness perp vector
+                const perpX = -dy / length * wallThickness / 2;
+                const perpY = dx / length * wallThickness / 2;
+                
+                context.strokeStyle = '#555';
+                context.lineWidth = 1;
+
+                for (let i = 0; i < numSteps; i++) {
+                    const p_base_i_center = { x: x1 + unitVx * stepLength * i, y: y1 + unitVy * stepLength * i };
+                    const p_base_i_plus1_center = { x: x1 + unitVx * stepLength * (i + 1), y: y1 + unitVy * stepLength * (i + 1) };
+                    
+                    const current_height = stepHeight * (i + 1); // Z height of the step surface
+                    const floor_height = stepHeight * i; // Z height of the base of the step
+                    
+                    const p1_2d = { x: p_base_i_center.x - perpX, y: p_base_i_center.y - perpY };
+                    const p2_2d = { x: p_base_i_plus1_center.x - perpX, y: p_base_i_plus1_center.y - perpY };
+                    const p3_2d = { x: p_base_i_plus1_center.x + perpX, y: p_base_i_plus1_center.y + perpY };
+                    const p4_2d = { x: p_base_i_center.x + perpX, y: p_base_i_center.y + perpY };
+                    
+                    // Transform the 2D corners to isometric view
+                    const p_corners = [p1_2d, p2_2d, p3_2d, p4_2d];
+                    const p = p_corners.map(c => adjust(c));
+
+                    // Calculate 3D points for the step top and riser (base)
+                    const p_top = p.map(pt => ({ x: pt.x, y: pt.y - current_height }));
+                    const p_base = p.map(pt => ({ x: pt.x, y: pt.y - floor_height })); // Base of the riser
+                    
+                    // Define faces (Top and Riser) - wood texture
+                    const faces = [
+                        // Top (Tread)
+                        { points: [p_top[0], p_top[3], p_top[2], p_top[1]], color: '#A0522D', avgY: p_top[0].y }, 
+                        // Riser (Vertical face) - (p_base_i+1 to p_top_i+1)
+                        { points: [p_base[1], p_top[1], p_top[2], p_base[2]], color: '#D2B48C', avgY: p_base[1].y } 
+                    ];
+
+                    // Draw faces
+                    faces.forEach(face => {
+                        context.fillStyle = face.color;
+                        context.beginPath();
+                        context.moveTo(face.points[0].x, face.points[0].y);
+                        face.points.slice(1).forEach(pt => context.lineTo(pt.x, pt.y));
+                        context.closePath();
+                        context.fill();
+                        context.stroke();
+                    });
+                }
+            }
+            
+            // --- Z-ORDER Drawing ---
+            
+            // 1. Draw Floors (Rects, Polygons, Hatches)
+            objects.filter(obj => ['rect', 'polygon', 'hatch'].includes(obj.type)).forEach(obj => {
+                if (obj.type === 'rect' || obj.type === 'hatch') {
+                     const color = obj.fill || (obj.type === 'rect' ? 'rgba(100, 149, 237, 0.4)' : (obj.pattern === 'wood' ? '#b8860b' : '#a9a9a9'));
+                     // Draw floor (height=0)
+                     drawIsoRectangularPrism(obj, isoCtx, 0, color, false);
+                } else if (obj.type === 'polygon') {
+                     // Draw polygon floor (height=0)
+                     drawIsoPolygonFloor(obj, isoCtx, 'rgba(100, 149, 237, 0.4)');
+                }
+            });
+
+            // 2. Draw Walls and Structural Lines (Rect, Polygon, Line, Arcwall, Beam)
+            objects.forEach(obj => {
+                if (obj.type === 'rect') {
+                    // Draw walls for a rectangular room
+                    drawIsoRectWalls(obj, isoCtx);
+                } else if (obj.type === 'polygon') {
+                    // Draw walls for a polygon room
+                    drawIsoPolygonWalls(obj, isoCtx);
+                } else if (obj.type === 'line' || obj.type === 'angleline') {
+                    // Standalone walls
+                    drawIsoWall(obj.x1, obj.y1, obj.x2, obj.y2, isoCtx);
+                } else if (obj.type === 'arcwall') {
+                    drawIsoArcWall(obj, isoCtx);
+                } else if (obj.type === 'beam') { 
+                    // Draw beam as a short, thick wall segment
+                    drawIsoWallSegment({x: obj.x1, y: obj.y1}, {x: obj.x2, y: obj.y2}, isoCtx, wallThickness * 1.5);
+                }
+            });
+            
+            // 3. Draw Features (Doors, Windows, Stairs)
+            objects.forEach(obj => {
+                 if (obj.type === 'door') {
+                    drawIsoDoor(obj.x1, obj.y1, obj.x2, obj.y2, isoCtx);
+                } else if (obj.type === 'window') {
+                    drawIsoWindow(obj.x1, obj.y1, obj.x2, obj.y2, isoCtx);
+                } else if (obj.type === 'stairs') {
+                    drawIsoStairs(obj.x1, obj.y1, obj.x2, obj.y2, isoCtx);
+                }
+            });
+
+            // 4. Draw Fixtures and Columns
+            objects.filter(obj => ['column', 'toilet', 'sink', 'sofa', 'bed', 'table', 'cabinet', 'appliance'].includes(obj.type)).forEach(obj => {
+                 let height = 0, color = '';
+                 if (obj.type === 'column') {
+                    height = wallHeight; color = materialMap[currentWallMaterialKey].wall;
+                 } else if (obj.type === 'cabinet') {
+                    height = wallHeight * 0.3; color = 'rgba(192, 192, 192, 1)';
+                 } else if (obj.type === 'appliance') {
+                    height = wallHeight * 0.25; color = 'rgba(211, 47, 47, 1)';
+                 } else { // Toilet, Sink, Sofa, Bed, Table
+                    let fixtureHeight = wallThickness * 2;
+                    height = fixtureHeight; color = obj.type === 'toilet' ? 'rgba(200, 200, 255, 1)' : obj.type === 'sink' ? 'rgba(135, 206, 250, 1)' : 'rgba(150, 75, 0, 1)';
+                 }
+                 drawIsoRectangularPrism(obj, isoCtx, height, color);
+            });
+            
+            // 5. Draw Roofs/Foundation
+            objects.filter(obj => ['roof', 'foundation'].includes(obj.type)).forEach(obj => {
+                 let height = 0, isRoof = false, color = '';
+                 if (obj.type === 'roof') {
+                    height = wallThickness; isRoof = true; color = materialMap[currentRoofMaterialKey].roof;
+                 } else if (obj.type === 'foundation') {
+                    height = wallThickness * 2; color = materialMap['Concrete'].top; 
+                 }
+                 drawIsoRectangularPrism(obj, isoCtx, height, color, isRoof);
+            });
+            
+            // 6. Draw Annotations (Text)
+            objects.filter(obj => obj.type === 'text').forEach(obj => {
+                const p_top = adjust(obj);
+                isoCtx.save();
+                isoCtx.fillStyle = '#0f172a';
+                isoCtx.font = 'bold 16px Arial';
+                isoCtx.textAlign = 'center';
+                isoCtx.fillText(obj.text, p_top.x, p_top.y - wallHeight - 10); // Adjust Y to float above the roof line
+                isoCtx.restore();
+            });
+            
+            // NOTE: Dimension Lines and Hatch Patterns (which only draw floor) are 2D-only annotations/textures and are intentionally excluded from the main 3D geometry loop, though their area has already been drawn in step 1.
+        }
+
+        function draw2DView() {
+            isoContainer.style.display = 'none';
+            mainContainer.style.display = 'block';
+            drawObjects();
+        }
+
+        // --- Snapping and Coordinates (UNMODIFIED) ---
+        
+        function getSnappedCoord(coord) {
+            if (currentTool === 'angleline' || currentTool === 'move' || currentTool === 'beam') { // Allow free movement for angleline, move and beam
+                return coord;
+            }
+            return Math.round(coord / gridSize) * gridSize;
+        }
+
+        function getRawCoord(e) {
+            const { clientX, clientY } = getClientPos(e);
+            const rect = canvas.getBoundingClientRect();
+            return { x: clientX - rect.left, y: clientY - rect.top };
+        }
+
+        // --- Drawing Stubs (Fixtures) (UNMODIFIED) --- 
+        function drawDimensionLabel(context, x, y, w, h, isLine = false, customLabel = null) {
+            context.save();
+            const scale = getScale();
+            const lengthMeters = Math.hypot(w, h) / scale;
+            const labelText = customLabel || (isLine ? `${lengthMeters.toFixed(2)}m` : `${(Math.abs(w)/scale).toFixed(2)}m x ${(Math.abs(h)/scale).toFixed(2)}m`);
+            
+            context.fillStyle = '#0f172a';
+            context.font = '10px Arial';
+            
+            if (isLine) {
+                 // For lines/walls, place near the center of the line
+                 const midX = x + w / 2;
+                 const midY = y + h / 2;
+                 // Calculate angle for rotating text
+                 const angle = Math.atan2(h, w);
+                 context.translate(midX, midY);
+                 context.rotate(angle);
+                 context.fillText(labelText, 0, -5); 
+            } else {
+                 // For rects/fixtures, place at the center
+                 context.textAlign = 'center';
+                 context.fillText(labelText, x + w / 2, y + h / 2 - 5);
+            }
+            context.restore();
+        }
+
+        function drawDimensionLine(context, obj, isTemp = false) {
+             context.save();
+             context.strokeStyle = isTemp ? '#007bff' : '#000000';
+             context.lineWidth = 1;
+             context.setLineDash(isTemp ? [5, 5] : []);
+
+             const scale = getScale();
+             const lengthMeters = Math.hypot(obj.x2 - obj.x1, obj.y2 - obj.y1) / scale;
+             
+             // 1. Draw offset line (the dimension line)
+             const dx = obj.x2 - obj.x1;
+             const dy = obj.y2 - obj.y1;
+             const length = Math.hypot(dx, dy);
+             if (length === 0) return;
+             
+             // Perpendicular vector for offset
+             const perpX = -dy / length * obj.offset;
+             const perpY = dx / length * obj.offset;
+             
+             const p1x = obj.x1 + perpX;
+             const p1y = obj.y1 + perpY;
+             const p2x = obj.x2 + perpX;
+             const p2y = obj.y2 + perpY;
+
+             context.beginPath(); context.moveTo(p1x, p1y); context.lineTo(p2x, p2y); context.stroke();
+             
+             // 2. Draw extension lines (from shape to dimension line)
+             context.beginPath(); context.moveTo(obj.x1, obj.y1); context.lineTo(p1x, p1y); context.stroke();
+             context.beginPath(); context.moveTo(obj.x2, obj.y2); context.lineTo(p2x, p2y); context.stroke();
+
+             // 3. Draw arrowheads (simplified: tick marks)
+             const tickLength = 10;
+             function drawTick(x, y, angle) {
+                 context.save();
+                 context.translate(x, y);
+                 context.rotate(angle);
+                 context.beginPath();
+                 context.moveTo(-tickLength / 2, 0); context.lineTo(tickLength / 2, 0); context.stroke();
+                 context.restore();
+             }
+             const angle = Math.atan2(dy, dx); // Angle of the line
+             drawTick(p1x, p1y, angle + Math.PI / 2);
+             drawTick(p2x, p2y, angle + Math.PI / 2);
+             
+             // 4. Draw label
+             context.fillStyle = '#0f172a';
+             context.font = 'bold 12px Arial';
+             context.textAlign = 'center';
+             
+             context.translate((p1x + p2x) / 2, (p1y + p2y) / 2);
+             context.rotate(angle);
+             context.fillText(`${lengthMeters.toFixed(2)}m`, 0, -5); 
+             
+             context.restore();
+        }
+
+        function drawArcWall(context, obj, drawDimensions) {
+            context.strokeStyle = '#1e293b';
+            context.lineWidth = wallThickness;
+            context.beginPath();
+            const radius = Math.hypot(obj.x1 - obj.xCenter, obj.y1 - obj.yCenter);
+            let startAngle = Math.atan2(obj.y1 - obj.yCenter, obj.x1 - obj.xCenter);
+            let endAngle = Math.atan2(obj.y2 - obj.yCenter, obj.x2 - obj.xCenter);
+            context.arc(obj.xCenter, obj.yCenter, radius, startAngle, endAngle, obj.anticlockwise);
+            context.stroke();
+            if (drawDimensions) {
+                context.fillStyle = '#0f172a'; context.font = '12px Arial'; 
+                context.fillText(`Radius: ${(radius/getScale()).toFixed(2)}m`, obj.xCenter, obj.yCenter - radius - 10);
+            }
+        }
+
+        function drawDoor(context, x1, y1, x2, y2) {
+            // Door drawing logic (same as wall, but with a gap and swing arc)
+            context.lineWidth = wallThickness; 
+            context.strokeStyle = '#1e293b';
+            context.beginPath(); context.moveTo(x1, y1); context.lineTo(x2, y2); context.stroke();
+            
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const length = Math.hypot(dx, dy);
+            const doorGap = length / 4; 
+            const doorSize = length - doorGap * 2;
+            
+            const unitVx = dx / length;
+            const unitVy = dy / length;
+            
+            // Draw the gap and a small segment
+            context.save();
+            context.strokeStyle = 'white'; 
+            context.lineWidth += 2; // Erase a section (draw over it)
+            context.beginPath(); 
+            context.moveTo(x1 + unitVx * doorGap, y1 + unitVy * doorGap);
+            context.lineTo(x2 - unitVx * doorGap, y2 - unitVy * doorGap);
+            context.stroke();
+            context.restore();
+            
+            // Draw the door swing
+            const p1 = { x: x1 + unitVx * doorGap, y: y1 + unitVy * doorGap };
+            const p2 = { x: p1.x + unitVx * doorSize, y: p1.y + unitVy * doorSize };
+            
+            // Perpendicular vector for door panel
+            const perpX = -unitVy * doorSize;
+            const perpY = unitVx * doorSize;
+            
+            // Draw the door panel (the rectangle)
+            context.lineWidth = 2;
+            context.strokeStyle = '#2563eb';
+            context.beginPath();
+            context.moveTo(p1.x, p1.y);
+            context.lineTo(p1.x + perpX, p1.y + perpY);
+            context.stroke();
+            
+            // Draw the arc
+            context.lineWidth = 1;
+            context.strokeStyle = '#2563eb';
+            context.beginPath();
+            context.arc(p1.x, p1.y, doorSize, Math.atan2(perpY, perpX), Math.atan2(-unitVy, -unitVx), true);
+            context.stroke();
+        }
+
+        function drawWindow(context, x1, y1, x2, y2) {
+            context.lineWidth = wallThickness; 
+            context.strokeStyle = '#1e293b';
+            context.beginPath(); context.moveTo(x1, y1); context.lineTo(x2, y2); context.stroke();
+
+            // Draw center line
+            context.lineWidth = 2;
+            context.strokeStyle = '#00bcd4';
+            context.beginPath(); 
+            context.moveTo(x1, y1); context.lineTo(x2, y2); 
+            context.stroke();
+        }
+
+        function drawStairs(context, x1, y1, x2, y2) {
+            context.lineWidth = wallThickness; 
+            context.strokeStyle = '#1e293b';
+            context.beginPath(); context.moveTo(x1, y1); context.lineTo(x2, y2); context.stroke();
+            
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const length = Math.hypot(dx, dy);
+            const numSteps = 8;
+            const stepLength = length / numSteps;
+            
+            context.strokeStyle = '#eab308';
+            context.lineWidth = 1;
+
+            for (let i = 1; i < numSteps; i++) {
+                const px = x1 + dx * i / numSteps;
+                const py = y1 + dy * i / numSteps;
+                
+                // Draw perpendicular line segment (the step)
+                const perpX = -dy / length * wallThickness / 2;
+                const perpY = dx / length * wallThickness / 2;
+                
+                context.beginPath();
+                context.moveTo(px - perpX, py - perpY);
+                context.lineTo(px + perpX, py + perpY);
+                context.stroke();
+            }
+        }
+        
+        function drawToilet(context, x, y, w, h) {
+             context.save();
+             context.translate(x + w/2, y + h/2);
+             context.rotate(0); // Rotation handle logic handles rotation
+             
+             const cw = w / 2;
+             const ch = h / 2;
+             
+             context.fillStyle = '#f0f8ff'; context.strokeStyle = '#1e293b'; context.lineWidth = 2;
+             
+             // Tank
+             context.fillRect(-cw, -ch, cw, ch);
+             context.strokeRect(-cw, -ch, cw, ch);
+             
+             // Bowl
+             context.beginPath();
+             context.ellipse(0, ch * 0.5, cw * 0.7, ch * 0.9, 0, 0, 2 * Math.PI);
+             context.fill(); context.stroke();
+             
+             context.restore();
+        }
+
+        function drawSink(context, x, y, w, h) {
+             context.save();
+             context.translate(x + w/2, y + h/2);
+             context.rotate(0);
+             
+             const cw = w / 2;
+             const ch = h / 2;
+             
+             context.fillStyle = '#f0f8ff'; context.strokeStyle = '#1e293b'; context.lineWidth = 2;
+             
+             // Countertop
+             context.fillRect(-cw, -ch, w, h);
+             context.strokeRect(-cw, -ch, w, h);
+             
+             // Bowl
+             context.fillStyle = '#c8e6f0';
+             context.beginPath();
+             context.arc(0, 0, cw * 0.6, 0, 2 * Math.PI);
+             context.fill(); context.stroke();
+             
+             context.restore();
+        }
+
+        function drawSofa(context, x, y, w, h) {
+             context.save();
+             context.translate(x + w/2, y + h/2);
+             context.rotate(0);
+             
+             const cw = w / 2;
+             const ch = h / 2;
+             
+             context.fillStyle = '#8b4513'; context.strokeStyle = '#5d371d'; context.lineWidth = 2;
+             
+             // Base
+             context.fillRect(-cw, -ch, w, h);
+             context.strokeRect(-cw, -ch, w, h);
+             
+             // Backrest
+             context.fillStyle = '#a0522d';
+             context.fillRect(-cw, -ch, w, ch * 0.2);
+             context.strokeRect(-cw, -ch, w, ch * 0.2);
+             
+             context.restore();
+        }
+
+        function drawBed(context, x, y, w, h) {
+             context.save();
+             context.translate(x + w/2, y + h/2);
+             context.rotate(0);
+             
+             const cw = w / 2;
+             const ch = h / 2;
+             
+             context.fillStyle = '#fdf5e6'; context.strokeStyle = '#8b4513'; context.lineWidth = 2;
+             
+             // Mattress
+             context.fillRect(-cw, -ch, w, h);
+             context.strokeRect(-cw, -ch, w, h);
+             
+             // Headboard
+             context.fillStyle = '#a0522d';
+             context.fillRect(-cw, -ch, w, ch * 0.4);
+             context.strokeRect(-cw, -ch, w, ch * 0.4);
+             
+             // Pillows
+             context.fillStyle = '#ffffff';
+             context.fillRect(-cw + ch * 0.2, -ch * 0.8, cw * 0.6, ch * 0.4);
+             context.fillRect(ch * 0.2, -ch * 0.8, cw * 0.6, ch * 0.4);
+             
+             context.restore();
+        }
+
+        function drawTable(context, x, y, w, h) {
+             context.save();
+             context.translate(x + w/2, y + h/2);
+             context.rotate(0);
+             
+             const cw = w / 2;
+             const ch = h / 2;
+             
+             context.fillStyle = '#deb887'; context.strokeStyle = '#8b4513'; context.lineWidth = 2;
+             
+             // Table Top
+             context.fillRect(-cw, -ch, w, h);
+             context.strokeRect(-cw, -ch, w, h);
+             
+             // Center lines to denote table
+             context.beginPath();
+             context.moveTo(-cw, -ch); context.lineTo(cw, ch);
+             context.moveTo(-cw, ch); context.lineTo(cw, -ch);
+             context.stroke();
+             
+             context.restore();
+        }
+
+        function drawColumn(context, x, y) {
+             context.save();
+             context.translate(x + COLUMN_SIZE/2, y + COLUMN_SIZE/2);
+             context.rotate(0); 
+             
+             const cw = COLUMN_SIZE / 2;
+             
+             context.fillStyle = '#78909c'; context.strokeStyle = '#546e7a'; context.lineWidth = 2;
+             
+             // Solid fill for structural column
+             context.fillRect(-cw, -cw, COLUMN_SIZE, COLUMN_SIZE);
+             context.strokeRect(-cw, -cw, COLUMN_SIZE, COLUMN_SIZE);
+             
+             // Cross hatch
+             context.beginPath();
+             context.moveTo(-cw, -cw); context.lineTo(cw, cw);
+             context.moveTo(-cw, cw); context.lineTo(cw, -cw);
+             context.stroke();
+             
+             context.restore();
+             drawDimensionLabel(context, x, y, COLUMN_SIZE, COLUMN_SIZE, false, "COL");
+        }
+        
+        // --- NEW Drawing Stubs for Structural and Floor Plan Tools ---
+
+        // Structural
+        function drawBeam(context, obj) {
+            context.save();
+            context.strokeStyle = '#546e7a'; // Structural color
+            context.lineWidth = 10; // Fixed width for beam in 2D
+            context.beginPath();
+            context.moveTo(obj.x1, obj.y1);
+            context.lineTo(obj.x2, obj.y2);
+            context.stroke();
+            // Add center line
+            context.strokeStyle = '#263238';
+            context.lineWidth = 2;
+            context.setLineDash([5, 5]);
+            context.beginPath();
+            context.moveTo(obj.x1, obj.y1);
+            context.lineTo(obj.x2, obj.y2);
+            context.stroke();
+            context.restore();
+            drawDimensionLabel(context, obj.x1, obj.y1, obj.x2 - obj.x1, obj.y2 - obj.y1, true, "BEAM");
+        }
+
+        function drawFoundation(context, obj) {
+            context.save();
+            context.fillStyle = 'rgba(84, 110, 122, 0.6)'; // Structural area color
+            context.fillRect(obj.x, obj.y, obj.w, obj.h);
+            context.strokeStyle = '#546e7a';
+            context.lineWidth = 3;
+            context.strokeRect(obj.x, obj.y, obj.w, obj.h);
+            
+            // Cross hatch pattern for foundation
+            context.strokeStyle = 'rgba(0,0,0,0.4)'; 
+            context.lineWidth = 1;
+            const spacing = 15;
+            for (let i = obj.x; i < obj.x + obj.w; i += spacing) {
+                context.beginPath(); context.moveTo(i, obj.y); context.lineTo(i, obj.y + obj.h); context.stroke();
+            }
+            for (let j = obj.y; j < obj.y + obj.h; j += spacing) {
+                context.beginPath(); context.moveTo(obj.x, j); context.lineTo(obj.x + obj.w, j); context.stroke();
+            }
+            
+            context.restore();
+            drawDimensionLabel(context, obj.x, obj.y, obj.w, obj.h, false, "FOUNDATION");
+        }
+
+        // Floor Plan Fixtures
+        function drawCabinet(context, x, y, w, h) {
+            context.save();
+            context.translate(x + w/2, y + h/2);
+            context.rotate(0);
+            const cw = w / 2;
+            const ch = h / 2;
+            
+            context.fillStyle = '#C0C0C0';
+            context.fillRect(-cw, -ch, w, h);
+            context.strokeStyle = '#696969';
+            context.lineWidth = 2;
+            context.strokeRect(-cw, -ch, w, h);
+            
+            // Draw door/drawer separation
+            const quarterW = w / 4;
+            context.beginPath();
+            context.moveTo(-cw + quarterW, -ch); context.lineTo(-cw + quarterW, ch);
+            context.moveTo(-cw + quarterW * 2, -ch); context.lineTo(-cw + quarterW * 2, ch);
+            context.moveTo(-cw + quarterW * 3, -ch); context.lineTo(-cw + quarterW * 3, ch);
+            context.stroke();
+
+            // Draw handles (small circles)
+            const handleSize = 2;
+            context.fillStyle = '#000000';
+            context.beginPath();
+            context.arc(-cw + quarterW / 2, 0, handleSize, 0, 2 * Math.PI); context.fill();
+            context.beginPath();
+            context.arc(-cw + quarterW + quarterW / 2, 0, handleSize, 0, 2 * Math.PI); context.fill();
+            context.beginPath();
+            context.arc(-cw + quarterW * 2 + quarterW / 2, 0, handleSize, 0, 2 * Math.PI); context.fill();
+            context.beginPath();
+            context.arc(-cw + quarterW * 3 + quarterW / 2, 0, handleSize, 0, 2 * Math.PI); context.fill();
+            
+            context.restore();
+            drawDimensionLabel(context, x, y, w, h, false, "CABINET");
+        }
+
+        function drawAppliance(context, x, y, w, h) {
+            context.save();
+            context.translate(x + w/2, y + h/2);
+            context.rotate(0);
+            const cw = w / 2;
+            const ch = h / 2;
+
+            context.fillStyle = '#d32f2f'; // Red color for appliance
+            context.fillRect(-cw, -ch, w, h);
+            context.strokeStyle = '#9a0007';
+            context.lineWidth = 2;
+            context.strokeRect(-cw, -ch, w, h);
+            
+            // Draw an 'A' for appliance
+            context.fillStyle = '#FFFFFF';
+            context.font = 'bold 18px Arial';
+            context.textAlign = 'center';
+            context.textBaseline = 'middle';
+            context.fillText('A', 0, 0);
+
+            context.restore();
+            drawDimensionLabel(context, x, y, w, h, false, "APPLIANCE");
+        }
+
+
+        function findObjectAtPoint(px, py) {
+            for (let i = objects.length - 1; i >= 0; i--) {
+                const obj = objects[i];
+                if (obj.type === 'rect' || obj.type === 'hatch' || obj.type === 'roof' || obj.type === 'foundation') {
+                    // Check rect-based objects
+                    const minX = Math.min(obj.x, obj.x + obj.w); const maxX = Math.max(obj.x, obj.x + obj.w);
+                    const minY = Math.min(obj.y, obj.y + obj.h); const maxY = Math.max(obj.y, obj.y + obj.h);
+                    if (px >= minX && px <= maxX && py >= minY && py <= maxY) {
+                        return obj;
+                    }
+                } else if (['line', 'door', 'window', 'stairs', 'angleline', 'beam'].includes(obj.type)) {
+                    // Check line-based objects (simplified: check distance to line segment)
+                    const dist = pointToLineSegmentDistance(px, py, obj.x1, obj.y1, obj.x2, obj.y2);
+                    if (dist <= wallThickness / 2 + 5) { 
+                        return obj;
+                    }
+                } else if (['toilet', 'sink', 'sofa', 'bed', 'table', 'column', 'cabinet', 'appliance', 'text'].includes(obj.type)) {
+                    // Check fixture/column/text (check bounding box, consider rotation)
+                    
+                    if (obj.type === 'text') {
+                         // Simple text bounds check
+                         if (px >= obj.x - 10 && px <= obj.x + 50 && py >= obj.y - 20 && py <= obj.y) return obj;
+                         continue;
+                    }
+                    
+                    const minX = obj.x; const maxX = obj.x + obj.w;
+                    const minY = obj.y; const maxY = obj.y + obj.h;
+                    // Simplified: check unrotated bounding box first
+                    if (px >= minX && px <= maxX && py >= minY && py <= maxY) {
+                        return obj;
+                    }
+                    
+                    // For fixtures with rotation, check rotation handle first
+                    if (isPointInRotationHandle(px, py, obj)) {
+                        selectedObject = obj;
+                        isRotatingSelected = true;
+                        toolMessage.textContent = `Rotation Mode for ${obj.type.toUpperCase()}. Drag handle to rotate.`;
+                        return obj;
+                    }
+
+                } else if (obj.type === 'polygon') {
+                    // Check if point is inside the polygon
+                    if (isPointInPolygon(px, py, obj.vertices)) {
+                         return obj;
+                    }
+                } else if (obj.type === 'dimension') {
+                    const dist = pointToLineSegmentDistance(px, py, obj.x1, obj.y1, obj.x2, obj.y2, obj.offset);
+                    if (dist <= 10) return obj;
+                }
+            }
+            return null;
+        }
+
+        // Helper for line segment distance check (used by walls/doors/windows/beams)
+        function pointToLineSegmentDistance(px, py, x1, y1, x2, y2, offset = 0) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const lengthSq = dx * dx + dy * dy;
+            
+            if (lengthSq === 0) { // p1 and p2 are the same point
+                return Math.hypot(px - x1, py - y1);
+            }
+            
+            // Project point onto line
+            let t = ((px - x1) * dx + (py - y1) * dy) / lengthSq;
+            t = Math.max(0, Math.min(1, t)); // Clamp t to segment endpoints
+
+            // Closest point on the line segment
+            const closestX = x1 + t * dx;
+            const closestY = y1 + t * dy;
+            
+            // Check offset dimension line
+            if (offset !== 0) {
+                 const length = Math.sqrt(lengthSq);
+                 const perpX = -dy / length * offset;
+                 const perpY = dx / length * offset;
+                 
+                 const p1x = x1 + perpX;
+                 const p1y = y1 + perpY;
+                 const p2x = x2 + perpX;
+                 const p2y = y2 + perpY;
+                 
+                 // Recalculate projection based on offset line
+                 const odx = p2x - p1x;
+                 const ody = p2y - p1y;
+                 const olengthSq = odx * odx + ody * ody;
+                 
+                 t = ((px - p1x) * odx + (py - p1y) * ody) / olengthSq;
+                 t = Math.max(0, Math.min(1, t));
+                 
+                 const finalX = p1x + t * odx;
+                 const finalY = p1y + t * ody;
+                 return Math.hypot(px - finalX, py - finalY);
+            }
+
+            // Distance from point to closest point on segment
+            return Math.hypot(px - closestX, py - closestY);
+        }
+        
+        // Ray Casting algorithm for Polygon hit test
+        function isPointInPolygon(px, py, vertices) {
+             let inside = false;
+             for (let i = 0, j = vertices.length - 1; i < vertices.length; j = i++) {
+                 const xi = vertices[i].x, yi = vertices[i].y;
+                 const xj = vertices[j].x, yj = vertices[j].y;
+                 
+                 const intersect = ((yi > py) !== (yj > py)) && 
+                                   (px < (xj - xi) * (py - yi) / (yj - yi) + xi);
+                 if (intersect) inside = !inside;
+             }
+             return inside;
+        }
+
+        // --- Rotation Handle Hit Test ---
+        function isPointInRotationHandle(px, py, obj) {
+            if (!obj.angle && obj.angle !== 0) return false;
+
+            const centerX = obj.x + obj.w / 2;
+            const centerY = obj.y + obj.h / 2;
+            
+            // The handle is UNROTATED at: (obj.x + obj.w + 15, obj.y - 15)
+            const handleUnrotatedX = obj.w / 2 + 15; 
+            const handleUnrotatedY = -obj.h / 2 - 15;
+            
+            // Rotate the handle coordinates around the object's center
+            const dx = handleUnrotatedX;
+            const dy = handleUnrotatedY;
+            const cosA = Math.cos(obj.angle);
+            const sinA = Math.sin(obj.angle);
+            
+            const handleRotatedX = centerX + dx * cosA - dy * sinA;
+            const handleRotatedY = centerY + dx * sinA + dy * cosA;
+
+            const halfSize = 10;
+            return px >= handleRotatedX - halfSize && px <= handleRotatedX + halfSize && 
+                   py >= handleRotatedY - halfSize && py <= handleRotatedY + halfSize;
+        }
+
+        // --- Polygon Drawing Click Handler ---
+        function handlePolygonClick(mapX, mapY) {
+            const snappedX = getSnappedCoord(mapX);
+            const snappedY = getSnappedCoord(mapY);
+
+            // Double click/tap to close the polygon
+            if (polygonVertices.length > 0) {
+                const firstVertex = polygonVertices[0];
+                const distToStart = Math.hypot(snappedX - firstVertex.x, snappedY - firstVertex.y);
+                
+                // If the user clicks close to the start point (within 20px), close the polygon
+                if (distToStart < 20) {
+                    if (polygonVertices.length >= 3) {
+                        objects.push({ type: 'polygon', vertices: polygonVertices, isClosed: true, fill: 'rgba(100, 149, 237, 0.4)' });
+                        toolMessage.textContent = `Polygon Room created with ${polygonVertices.length} sides.`;
+                    } else {
+                        toolMessage.textContent = "Polygon requires at least 3 vertices. Drawing reset.";
+                    }
+                    isDrawingPolygon = false;
+                    polygonVertices = [];
+                    currentShape = null; // Also clear the current shape that holds the live mouse position
+                    drawObjects();
+                    return;
+                }
+            }
+            
+            // Add new vertex
+            polygonVertices.push({ x: snappedX, y: snappedY });
+            isDrawingPolygon = true;
+            currentShape = { x: snappedX, y: snappedY }; // Placeholder for live line drawing
+            toolMessage.textContent = `Polygon: Added vertex at (${(snappedX/getScale()).toFixed(2)}, ${(snappedY/getScale()).toFixed(2)}). Click near start to close.`;
+            drawObjects();
+        }
+
+
+        function handleCanvasClick(e) {
+            e.preventDefault(); 
+            
+            if (isoContainer.style.display === 'block') return; // Ignore clicks in 3D view
+            
+            const { x: rawX, y: rawY } = getRawCoord(e);
+            const mapX = rawX;
+            const mapY = rawY;
+
+            let snappedX = getSnappedCoord(mapX);
+            let snappedY = getSnappedCoord(mapY);
+
+            // --- ADVANCED ROTATION MODE (Check first) ---
+            if (selectedObject && isPointInRotationHandle(mapX, mapY, selectedObject)) {
+                isRotatingSelected = true;
+                canvas.classList.add('editing-active');
+                toolMessage.textContent = `Rotating ${selectedObject.type.toUpperCase()}. Drag handle to rotate.`;
+                return;
+            }
+
+            // --- ARC WALL TOOL (State-based) ---
+            if (currentTool === 'arcwall') {
+                if (drawingState === 0) {
+                    startX = snappedX;
+                    startY = snappedY;
+                    drawingState = 1;
+                    toolMessage.textContent = "Curved Wall: Click to set the center point.";
+                    isDrawing = false;
+                } else if (drawingState === 1) {
+                    const xCenter = snappedX;
+                    const yCenter = snappedY;
+                    const radius = Math.hypot(startX - xCenter, startY - yCenter);
+                    currentShape = { type: 'arcwall', x1: startX, y1: startY, xCenter, yCenter, radius, x2: startX, y2: startY, anticlockwise: false };
+                    drawingState = 2;
+                    toolMessage.textContent = "Curved Wall: Drag to define the end angle.";
+                    isDrawing = true;
+                    canvas.classList.add('drawing-active');
+                }
+                return;
+            } 
+            
+            // --- POLYGON TOOL (Multi-click) ---
+            if (currentTool === 'polygon') {
+                handlePolygonClick(mapX, mapY);
+                return;
+            } 
+            
+            // If another tool is active, end polygon drawing
+            if (isDrawingPolygon) {
+                 toolMessage.textContent = "Polygon drawing cancelled.";
+                 isDrawingPolygon = false;
+                 polygonVertices = [];
+                 currentShape = null;
+                 drawObjects();
+            }
+
+            // --- MOVE MODE (Click to select for drag start) ---
+            if (currentTool === 'move') {
+                selectedObject = findObjectAtPoint(mapX, mapY);
+                if (selectedObject) {
+                    startX = rawX; // Use raw coordinates for drag start
+                    startY = rawY;
+                    isDrawing = true; // Use isDrawing for the drag operation
+                    canvas.classList.add('editing-active');
+                    toolMessage.textContent = `Moving ${selectedObject.type.toUpperCase()}... Drag to reposition.`;
+                } else {
+                    selectedObject = null;
+                    toolMessage.textContent = "Click an object to move it.";
+                    drawObjects();
+                }
+                return;
+            } 
+
+            // --- COPY MODE (Click to select for copy) ---
+            if (currentTool === 'copy') {
+                const hitObject = findObjectAtPoint(mapX, mapY);
+                if (hitObject) {
+                    const newObj = JSON.parse(JSON.stringify(hitObject)); // Deep copy
+                    // Apply a small offset
+                    const offset = gridSize / 2;
+                    if (newObj.x !== undefined) newObj.x += offset; 
+                    if (newObj.y !== undefined) newObj.y += offset; 
+                    if (newObj.x1 !== undefined) { newObj.x1 += offset; newObj.xCenter += offset; }
+                    if (newObj.y1 !== undefined) { newObj.y1 += offset; newObj.yCenter += offset; }
+                    if (newObj.x2 !== undefined) newObj.x2 += offset; 
+                    if (newObj.y2 !== undefined) newObj.y2 += offset; 
+                    
+                    // Reset selected object after copy
+                    selectedObject = null;
+                    objects.push(newObj);
+                    toolMessage.textContent = `${hitObject.type.toUpperCase()} copied and offset by 0.5 grid units.`;
+                    drawObjects();
+                } else {
+                    toolMessage.textContent = "Click an object to copy it.";
+                }
+                return;
+            }
+            
+            // --- SELECT/DELETE/ROTATE MODE ---
+            if (currentTool === 'select') {
+                selectedObject = findObjectAtPoint(mapX, mapY);
+                if (selectedObject) {
+                    const hitObject = selectedObject;
+                    if (['toilet', 'sink', 'sofa', 'bed', 'table', 'column', 'cabinet', 'appliance'].includes(hitObject.type)) { // Added new fixtures
+                         const action = prompt(`Fixture Selected! Type: ${hitObject.type.toUpperCase()}. Enter R to Rotate 90° or D to Delete:`, 'R');
+                         if (action && action.toUpperCase() === 'R') {
+                             hitObject.angle = (hitObject.angle || 0) + Math.PI / 2;
+                             toolMessage.textContent = `${hitObject.type.toUpperCase()} rotated 90°.`;
+                         } else if (action && action.toUpperCase() === 'D') {
+                             const index = objects.indexOf(selectedObject);
+                             if (index > -1) { objects.splice(index, 1); }
+                             toolMessage.textContent = "Object deleted.";
+                         }
+                    } else if (['dimension', 'polygon', 'text', 'roof', 'foundation'].includes(hitObject.type)) { // Added foundation
+                         const action = confirm(`Object Selected: ${hitObject.type === 'dimension' ? 'Dimension Line' : hitObject.type === 'polygon' ? 'Polygon Room' : hitObject.type === 'roof' ? 'Roof/Ceiling' : hitObject.type === 'foundation' ? 'Foundation Slab' : 'Text Label'}. Do you want to DELETE it?`);
+                         if (action) {
+                             const index = objects.indexOf(selectedObject);
+                             if (index > -1) { objects.splice(index, 1); }
+                             toolMessage.textContent = "Object deleted.";
+                         }
+                    } else { // Walls, Doors, Windows, Stairs, Rects, Hatches, Beams
+                         const action = confirm(`Object Selected! Type: ${hitObject.type.toUpperCase()}. Do you want to DELETE it?`);
+                         if (action) {
+                             const index = objects.indexOf(selectedObject);
+                             if (index > -1) { objects.splice(index, 1); }
+                             toolMessage.textContent = "Object deleted.";
+                         }
+                    }
+                    selectedObject = null;
+                    drawObjects();
+                } else {
+                    selectedObject = null;
+                    drawObjects();
+                    toolMessage.textContent = "No object selected.";
+                }
+                return;
+            }
+
+            // --- TEXT TOOL (Single-click placement) ---
+            if (currentTool === 'text') {
+                const text = prompt("Enter the label text:", "Label");
+                if (text) {
+                    objects.push({ type: 'text', x: snappedX, y: snappedY, text: text });
+                    toolMessage.textContent = "Text Label placed.";
+                }
+                drawObjects();
+                return;
+            }
+
+            // --- DIMENSION TOOL (Starts in state 0) ---
+            if (currentTool === 'dimension') {
+                if (drawingState === 0) {
+                    startX = snappedX;
+                    startY = snappedY;
+                    drawingState = 1;
+                    toolMessage.textContent = "Dimension Line: Click and drag to define the line segment to measure.";
+                    isDrawing = true;
+                    canvas.classList.add('drawing-active');
+                    currentShape = { type: 'dimension', x1: startX, y1: startY, x2: startX, y2: startY, offset: 50 };
+                    return;
+                }
+            }
+
+            // --- STRUCTURAL BEAM TOOL (Line-based) ---
+            if (currentTool === 'beam') {
+                startX = rawX; // Use raw coordinates for free-angle draw
+                startY = rawY;
+                isDrawing = true;
+                canvas.classList.add('drawing-active');
+                currentShape = { type: 'beam', x1: startX, y1: startY, x2: startX, y2: startY };
+                toolMessage.textContent = "Beam: Drag to define the end point of the structural beam.";
+                return;
+            }
+
+            // --- STRUCTURAL FOUNDATION TOOL (Rect-based) ---
+            if (currentTool === 'foundation') {
+                startX = snappedX;
+                startY = snappedY;
+                isDrawing = true;
+                canvas.classList.add('drawing-active');
+                currentShape = { type: 'foundation', x: startX, y: startY, w: 0, h: 0 };
+                toolMessage.textContent = "Foundation: Drag to define the rectangular area of the foundation slab.";
+                return;
+            }
+
+
+            // --- STANDARD DRAWING START (Snapped) ---
+            startX = snappedX;
+            startY = snappedY;
+            isDrawing = true;
+            canvas.classList.add('drawing-active');
+
+            const isFixture = ['toilet', 'sink', 'sofa', 'bed', 'table', 'cabinet', 'appliance'].includes(currentTool); // UPDATED
+            const isLineTool = ['line', 'door', 'window', 'stairs'].includes(currentTool);
+
+            if (currentTool === 'rect' || currentTool === 'roof' || currentTool === 'hatch') {
+                currentShape = { type: currentTool, x: startX, y: startY, w: 0, h: 0 };
+            } else if (isLineTool) {
+                currentShape = { type: currentTool, x1: startX, y1: startY, x2: startX, y2: startY };
+            } else if (isFixture) {
+                // Fixtures are single-click and have their size fixed in stopDrawing
+                currentShape = { type: currentTool, x: startX, y: snappedY, w: 0, h: 0, angle: 0 };
+                stopDrawing(); // Place immediately
+            } else if (currentTool === 'angleline') {
+                startX = rawX; // Use raw coords for no-snap line
+                startY = rawY;
+                currentShape = { type: currentTool, x1: startX, y1: startY, x2: startX, y2: startY };
+            } else if (currentTool === 'column') {
+                // Column is single-click, size fixed
+                currentShape = { type: 'column', x: startX, y: snappedY, w: 0, h: 0, angle: 0 };
+                stopDrawing();
+            }
+        }
+
+        function draw(e) {
+            if (!isDrawing && !isRotatingSelected && !isDrawingPolygon && currentTool !== 'arcwall') return;
+            e.preventDefault();
+            
+            const { x: rawX, y: rawY } = getRawCoord(e);
+            let mouseX = rawX;
+            let mouseY = rawY;
+
+            // Only snap for grid-based tools
+            if (['rect', 'line', 'door', 'window', 'stairs', 'hatch', 'column', 'roof', 'foundation'].includes(currentTool)) {
+                mouseX = getSnappedCoord(rawX);
+                mouseY = getSnappedCoord(rawY);
+            }
+
+            // --- MOVE MODE (Drag the selected object) ---
+            if (currentTool === 'move' && selectedObject) {
+                const dx = rawX - startX;
+                const dy = rawY - startY;
+                
+                // Update object position
+                if (selectedObject.x !== undefined) selectedObject.x += dx; 
+                if (selectedObject.y !== undefined) selectedObject.y += dy;
+                if (selectedObject.x1 !== undefined) selectedObject.x1 += dx; 
+                if (selectedObject.y1 !== undefined) selectedObject.y1 += dy;
+                if (selectedObject.x2 !== undefined) selectedObject.x2 += dx; 
+                if (selectedObject.y2 !== undefined) selectedObject.y2 += dy;
+                if (selectedObject.xCenter !== undefined) selectedObject.xCenter += dx; 
+                if (selectedObject.yCenter !== undefined) selectedObject.yCenter += dy;
+                
+                // Update polygon vertices
+                if (selectedObject.type === 'polygon' && selectedObject.vertices) {
+                    selectedObject.vertices.forEach(v => {
+                        v.x += dx;
+                        v.y += dy;
+                    });
+                }
+                
+                // Reset start for next move operation (continuous move)
+                startX = rawX;
+                startY = rawY;
+                
+                drawObjects();
+                toolMessage.textContent = `Moving ${selectedObject.type.toUpperCase()}... Hold and drag to continue.`;
+                return;
+            }
+
+            // --- Arc Wall state 2: defining the end angle ---
+            if (currentTool === 'arcwall' && drawingState === 2) {
+                currentShape.x2 = mouseX;
+                currentShape.y2 = mouseY;
+
+                const angle1 = Math.atan2(currentShape.y1 - currentShape.yCenter, currentShape.x1 - currentShape.xCenter);
+                const angle2 = Math.atan2(currentShape.y2 - currentShape.yCenter, currentShape.x2 - currentShape.xCenter);
+                
+                // Determine direction based on mouse movement relative to arc center
+                const cross = (currentShape.x1 - currentShape.xCenter) * (mouseY - currentShape.y1) - (currentShape.y1 - currentShape.yCenter) * (mouseX - currentShape.x1);
+                currentShape.anticlockwise = cross < 0; // Simple heuristic for direction
+
+                drawObjects();
+                toolMessage.textContent = `Curved Wall: Defining end angle. Sweep angle: ${((angle2 - angle1) * 180 / Math.PI).toFixed(0)}°.`;
+                return;
+            } 
+            
+            // --- Advanced Rotation Mode ---
+            if (isRotatingSelected) {
+                const obj = selectedObject;
+                const centerX = obj.x + obj.w / 2;
+                const centerY = obj.y + obj.h / 2;
+                
+                // Calculate the new angle from the center to the mouse position
+                const newAngle = Math.atan2(mouseY - centerY, mouseX - centerX) + Math.PI/4; 
+                obj.angle = newAngle; 
+                
+                drawObjects();
+                toolMessage.textContent = `Rotating ${obj.type.toUpperCase()}. Angle: ${(obj.angle * 180 / Math.PI).toFixed(0)}°.`;
+                return;
+            }
+
+            // --- Polygon Drawing (update live line to mouse) ---
+            if (isDrawingPolygon && polygonVertices.length > 0) {
+                 currentShape = { x: rawX, y: rawY }; // No snapping for live drawing
+                 drawObjects();
+                 return;
+            }
+            
+            // --- Standard Line Tools (Walls, Doors, Windows, Stairs, Angle Wall, Beam) ---
+            const isDragLineTool = ['line', 'door', 'window', 'stairs', 'angleline', 'beam'].includes(currentTool); // UPDATED
+            if (isDragLineTool) {
+                currentShape.x2 = mouseX;
+                currentShape.y2 = mouseY;
+            } 
+
+            // --- Standard Rect Tools (Rect, Hatch, Roof, Foundation) ---
+            const isDragRectTool = ['rect', 'hatch', 'roof', 'foundation'].includes(currentTool); // UPDATED
+            if (isDragRectTool) {
+                currentShape.w = mouseX - startX;
+                currentShape.h = mouseY - startY;
+            }
+
+            // --- Dimension Line Tool (updates x2, y2) ---
+            if (currentTool === 'dimension' && drawingState === 1) {
+                currentShape.x2 = mouseX;
+                currentShape.y2 = mouseY;
+            }
+
+            drawObjects();
+        }
+
+        function stopDrawing(e) {
+            if (!isDrawing && !isRotatingSelected && currentTool !== 'arcwall' && currentTool !== 'dimension' && currentTool !== 'column' && !['cabinet', 'appliance'].includes(currentTool)) return; 
+
+            if (isRotatingSelected) {
+                isRotatingSelected = false;
+                canvas.classList.remove('editing-active');
+                // selectedObject is intentionally *not* cleared to keep the rotated object selected
+                drawObjects();
+                toolMessage.textContent = `Rotation complete for ${selectedObject.type.toUpperCase()}. Select another tool or object.`;
+                return;
+            }
+
+            // --- MOVE MODE END ---
+            if (currentTool === 'move') {
+                isDrawing = false;
+                canvas.classList.remove('editing-active');
+                if (selectedObject) {
+                    toolMessage.textContent = `${selectedObject.type.toUpperCase()} moved successfully.`;
+                    selectedObject = null; // Clear selection after move is complete
+                    drawObjects();
+                }
+                return;
+            }
+            
+            // Normal drawing sequence end
+            isDrawing = false;
+            canvas.classList.remove('drawing-active');
+
+            // --- ARC WALL END ---
+            if (currentTool === 'arcwall') {
+                if (drawingState === 2 && currentShape) {
+                    objects.push(currentShape);
+                    toolMessage.textContent = "Curved Wall created.";
+                    drawingState = 0;
+                    currentShape = null;
+                    drawObjects();
+                } else if (drawingState === 1) {
+                    // If they stop drawing after setting the center point, reset
+                    drawingState = 0;
+                    toolMessage.textContent = "Curved Wall drawing aborted.";
+                }
+                return;
+            }
+            
+            // --- DIMENSION END ---
+            if (currentTool === 'dimension') {
+                if (drawingState === 1) {
+                    objects.push(currentShape);
+                    toolMessage.textContent = `Dimension Line created.`;
+                    drawingState = 0;
+                }
+                currentShape = null;
+                drawObjects();
+                return;
+            }
+
+            // --- STANDARD SHAPE FINALIZATION ---
+            if (currentShape) {
+                const w = currentShape.w || (currentShape.x2 - currentShape.x1);
+                const h = currentShape.h || (currentShape.y2 - currentShape.y1);
+                const length = Math.hypot(w, h);
+                const finalX = currentShape.x || currentShape.x1;
+                const finalY = currentShape.y || currentShape.y1;
+
+                const supportedRect = ['rect', 'hatch', 'roof', 'foundation', 'toilet', 'sink', 'sofa', 'bed', 'table', 'column', 'cabinet', 'appliance']; // UPDATED
+                const supportedLine = ['line', 'door', 'window', 'stairs', 'angleline', 'beam']; // UPDATED
+                
+                if (supportedRect.includes(currentTool)) {
+                    let finalW, finalH;
+                    
+                    // Custom handling for single-click objects and drag-to-size
+                    if (currentTool === 'cabinet') { // NEW FIXTURE 1: Cabinet
+                        finalW = CABINET_W; 
+                        finalH = CABINET_H;
+                    } else if (currentTool === 'appliance') { // NEW FIXTURE 2: Appliance
+                        finalW = APPLIANCE_SIZE;
+                        finalH = APPLIANCE_SIZE;
+                    } else if (currentTool === 'column' || ['toilet', 'sink', 'sofa', 'bed', 'table'].includes(currentTool)) {
+                         // Existing fixtures and columns (fixed size on click)
+                         finalW = COLUMN_SIZE;
+                         finalH = COLUMN_SIZE;
+                    } else { 
+                        // Drag-to-size tools (rect, hatch, roof, foundation)
+                        if (Math.abs(w) < gridSize / 2 || Math.abs(h) < gridSize / 2) {
+                            toolMessage.textContent = `${currentTool.toUpperCase()} too small. Must be at least 0.5 grid units.`;
+                            currentShape = null; 
+                            drawObjects();
+                            return;
+                        }
+                        finalW = Math.abs(w);
+                        finalH = Math.abs(h);
+                    }
+                    
+                    // Determine true starting position for negative drag
+                    const trueX = (w < 0 && !['cabinet', 'appliance', 'column', 'toilet', 'sink', 'sofa', 'bed', 'table'].includes(currentTool)) ? finalX + w : finalX;
+                    const trueY = (h < 0 && !['cabinet', 'appliance', 'column', 'toilet', 'sink', 'sofa', 'bed', 'table'].includes(currentTool)) ? finalY + h : finalY;
+                    
+                    const finalShape = { 
+                        type: currentTool, 
+                        x: trueX, 
+                        y: trueY, 
+                        w: finalW, 
+                        h: finalH, 
+                        angle: 0 
+                    };
+                    
+                    // Add tool-specific properties
+                    if (currentTool === 'hatch') { finalShape.pattern = prompt("Enter hatch pattern (wood or carpet):", "wood"); }
+                    if (currentTool === 'rect' || currentTool === 'polygon') { finalShape.fill = 'rgba(100, 149, 237, 0.4)'; }
+                    
+                    objects.push(finalShape);
+                    toolMessage.textContent = `${currentTool.toUpperCase()} created.`;
+
+                } else if (supportedLine.includes(currentTool)) { // Line-based tools (Walls, Doors, Windows, Stairs, Angle Wall, Beam)
+                    if (length > gridSize / 4) { 
+                        // Line segment is long enough
+                        objects.push(currentShape);
+                        toolMessage.textContent = `${currentTool.toUpperCase()} created.`;
+                    } else {
+                        toolMessage.textContent = `${currentTool.toUpperCase()} too short. Min length is 0.25 grid units.`;
+                    }
+                }
+                
+                currentShape = null;
+                drawObjects();
+            }
+        }
+
+        // --- Export Functions (UNMODIFIED) ---
+        function exportCanvasAsPNG(canvasToExport, filename) {
+             const image = canvasToExport.toDataURL("image/png").replace("image/png", "image/octet-stream");
+             const link = document.createElement('a');
+             link.download = filename;
+             link.href = image;
+             document.body.appendChild(link);
+             link.click();
+             document.body.removeChild(link);
+        }
+        
+        function exportPlanWithDimensions() {
+             const tempCanvas = document.createElement('canvas'); tempCanvas.width = canvas.width; tempCanvas.height = canvas.height;
+             const tempCtx = tempCanvas.getContext('2d');
+             drawGrid(tempCtx, true); objects.forEach((obj) => { drawSingleObject(tempCtx, obj, false, true); });
+             exportCanvasAsPNG(tempCanvas, 'floorplan_dims.png'); drawObjects(); 
+        }
+        function exportClean2D() {
+             const tempCanvas = document.createElement('canvas'); tempCanvas.width = canvas.width; tempCanvas.height = canvas.height;
+             const tempCtx = tempCanvas.getContext('2d');
+             drawGrid(tempCtx, false); objects.forEach((obj) => { drawSingleObject(tempCtx, obj, false, false); });
+             exportCanvasAsPNG(tempCanvas, 'floorplan_clean_2d.png'); drawObjects(); 
+        }
+        function exportIsometric3D() {
+            drawIsometricView(); exportCanvasAsPNG(isoCanvas, 'floorplan_isometric_3d.png');
+            // Revert to 2D view after export
+            draw2DView(); document.getElementById('mode-3d').textContent = 'View 3D 🧊';
+        }
+
+        function setupListeners() {
+            // 2D Drawing Listeners
+            canvas.addEventListener('mousedown', handleCanvasClick);
+            canvas.addEventListener('touchstart', handleCanvasClick);
+            canvas.addEventListener('mousemove', draw);
+            canvas.addEventListener('touchmove', draw);
+            canvas.addEventListener('mouseup', stopDrawing);
+            canvas.addEventListener('touchend', stopDrawing);
+            canvas.addEventListener('mouseleave', () => { if(isDrawing || isRotatingSelected) stopDrawing(); });
+            canvas.addEventListener('touchcancel', stopDrawing);
+
+            // 3D Touch Rotation Listeners
+            isoCanvas.addEventListener('touchstart', handleIsoTouchStart);
+            isoCanvas.addEventListener('touchmove', handleIsoTouchMove);
+            isoCanvas.addEventListener('touchend', handleIsoTouchEnd);
+            isoCanvas.addEventListener('touchcancel', handleIsoTouchEnd);
+        }
+        
+        function handleIsoTouchStart(e) {
+            e.preventDefault(); 
+            if (isoContainer.style.display === 'block') {
+                isRotating3D = true;
+                touchStartX = e.touches[0].clientX;
+            }
+        }
+
+        function handleIsoTouchMove(e) {
+            if (!isRotating3D) return;
+            const currentX = e.touches[0].clientX;
+            const deltaX = currentX - touchStartX;
+            isoRotationAngle += deltaX * rotationSensitivity;
+            touchStartX = currentX;
+            drawIsometricView();
+        }
+
+        function handleIsoTouchEnd() {
+            isRotating3D = false;
+        }
+
+        document.getElementById('mode-3d').onclick = () => {
+            if (isoContainer.style.display === 'block') {
+                document.getElementById('mode-3d').textContent = 'View 3D 🧊';
+                draw2DView();
+            } else {
+                document.getElementById('mode-3d').textContent = 'View 2D 🏠';
+                drawIsometricView();
+            }
+        };
+
+        document.querySelectorAll('button').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.controls button').forEach(b => b.classList.remove('active'));
+                
+                // Exclude utility and export buttons from becoming 'active' tool
+                if (e.target.id === 'mode-3d' || e.target.id.startsWith('export-') || e.target.id.startsWith('rotate-') || e.target.id === 'clear-btn' || e.target.id === 'save-btn' || e.target.id === 'load-btn') return;
+                
+                e.target.classList.add('active');
+                
+                // Always switch back to 2D if a design tool is selected
+                if (isoContainer.style.display === 'block') {
+                    draw2DView();
+                    document.getElementById('mode-3d').textContent = 'View 3D 🧊';
+                }
+
+                const newTool = e.target.id.replace('mode-', '');
+                if (newTool.length > 0) {
+                    currentTool = newTool;
+                    selectedObject = null;
+                    drawingState = 0;
+                    isDrawingPolygon = false;
+                    polygonVertices = [];
+                    currentShape = null; 
+                    drawObjects();
+                    
+                    let message = `Selected tool: ${currentTool.toUpperCase()}. Click and drag to define the area.`;
+                    if (currentTool === 'select' || currentTool === 'move' || currentTool === 'copy') { 
+                         message = `Selected tool: ${currentTool.toUpperCase()}. Click an object to interact.`;
+                         canvas.classList.remove('drawing-active');
+                         canvas.classList.add('editing-active');
+                    } else if (currentTool === 'polygon') {
+                         message = "Polygon Room: Click to add vertices. Click near the start point to close the room.";
+                         canvas.classList.remove('editing-active');
+                         canvas.classList.add('polygon-drawing');
+                    } else if (currentTool === 'door' || currentTool === 'window' || currentTool === 'stairs' || currentTool === 'line' || currentTool === 'beam') {
+                         message = `Selected tool: ${currentTool.toUpperCase()}. Click and drag along a grid line to define the element.`;
+                         canvas.classList.remove('editing-active');
+                         canvas.classList.add('drawing-active');
+                    } else if (currentTool === 'column' || currentTool === 'toilet' || currentTool === 'sink' || currentTool === 'sofa' || currentTool === 'bed' || currentTool === 'table' || currentTool === 'cabinet' || currentTool === 'appliance') {
+                         message = `Selected tool: ${currentTool.toUpperCase()}. Click once on the grid to place the fixed-size element.`;
+                         canvas.classList.remove('editing-active');
+                         canvas.classList.add('drawing-active');
+                    } else if (currentTool === 'arcwall') {
+                         message = "Curved Wall: Click once to set the start point, click again to set the center point.";
+                    } else if (currentTool === 'angleline') {
+                         message = "Any-Angle Wall: Click and drag to draw a wall at *any* angle (no grid snap).";
+                    } else if (currentTool === 'dimension') {
+                         message = "Dimension Line: Click and drag to define a measurement line between any two points.";
+                    } else if (currentTool === 'hatch') {
+                         message = "Hatch Fill: Click and drag to define the area, then select the pattern (e.g., wood, carpet).";
+                    } else if (currentTool === 'text') {
+                         message = "Label: Click where you want to place the label, then enter your text.";
+                    } else if (currentTool === 'roof') {
+                         message = "Roof/Ceiling: Click and drag to define the rectangular area of the roof slab.";
+                    } else if (currentTool === 'foundation') {
+                         message = "Foundation: Click and drag to define the rectangular area of the foundation slab.";
+                    }
+                    toolMessage.textContent = message;
+                }
+            });
+        });
+
+        // Utility Button Handlers
+        document.getElementById('clear-btn').onclick = () => {
+            if (confirm('Clear the entire plan?')) {
+                objects = [];
+                isDrawingPolygon = false;
+                polygonVertices = [];
+                currentShape = null;
+                drawObjects();
+                toolMessage.textContent = "Plan cleared.";
+            }
+        };
+
+        document.getElementById('save-btn').onclick = () => {
+            try {
+                localStorage.setItem('floorplanDesignerObjects', JSON.stringify(objects));
+                localStorage.setItem('floorplanDesignerScale', scaleInput.value);
+                localStorage.setItem('floorplanDesignerThickness', thicknessInput.value);
+                localStorage.setItem('floorplanDesignerHeight', heightInput.value);
+                toolMessage.textContent = "Plan saved to local storage!";
+            } catch (e) {
+                toolMessage.textContent = "Error saving plan to local storage.";
+            }
+        };
+
+        document.getElementById('load-btn').onclick = () => {
+            try {
+                const savedObjects = localStorage.getItem('floorplanDesignerObjects');
+                const savedScale = localStorage.getItem('floorplanDesignerScale');
+                const savedThickness = localStorage.getItem('floorplanDesignerThickness');
+                const savedHeight = localStorage.getItem('floorplanDesignerHeight');
+
+                if (savedObjects) {
+                    objects = JSON.parse(savedObjects);
+                    scaleInput.value = savedScale || '1.00';
+                    thicknessInput.value = savedThickness || '0.20';
+                    heightInput.value = savedHeight || '3.00';
+                    updateModelingConstants();
+                    drawObjects();
+                    toolMessage.textContent = "Plan loaded from local storage!";
+                } else {
+                    toolMessage.textContent = "No saved plan found.";
+                }
+            } catch (e) {
+                toolMessage.textContent = "Error loading plan from local storage.";
+            }
+        };
+        
+        document.getElementById('export-dim-btn').onclick = exportPlanWithDimensions;
+        document.getElementById('export-2d-btn').onclick = exportClean2D;
+        document.getElementById('export-3d-btn').onclick = exportIsometric3D;
+
+
+        window.onload = () => {
+            setCanvasSize();
+            setupListeners();
+            document.getElementById('mode-rect').classList.add('active');
+            canvas.classList.add('drawing-active'); 
+        };
+    </script>
+</body>
+</html>
